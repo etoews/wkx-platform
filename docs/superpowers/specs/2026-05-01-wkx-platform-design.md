@@ -112,8 +112,8 @@ Four layers, each with one job and a clean interface to the next. Same shape on 
 
 1. Project repo's GHA workflow uses GitHub OIDC to assume an AWS role scoped to its own ECR repo + SSM RunCommand.
 2. Workflow builds a multi-stage container (default ARM64; opt-in amd64 for projects that also run on the home server) and pushes to ECR.
-3. Workflow invokes `aws ssm send-command` with a script that pulls the image, renders the env-file from SSM Parameter Store, and runs `docker compose -p <env>-<service> up -d`.
-4. The host's Caddy reload picks up the snippet at `/etc/caddy/Caddyfile.d/<env>/<service>.caddy`.
+3. Workflow invokes `aws ssm send-command` with a script that pulls the image, renders the env-file from SSM Parameter Store, and runs `docker compose -p <service>-<env> up -d`.
+4. The host's Caddy reload picks up the snippet at `/etc/caddy/Caddyfile.d/<service>/<env>.caddy`.
 
 Adding a project = `wkx-scaffold` script clones `wkx-platform/template/` into a new repo, runs name/port/hostname substitutions, initializes git, creates the GitHub repo, and opens a PR against `wkx-platform` adding `infra/projects/<name>.tf` (creating ECR repo, log group, DNS record).
 
@@ -134,7 +134,7 @@ wkx-platform/
 │   └── shared/               common: install-docker.sh, dirs.sh
 ├── platform/                 Layer 3
 │   ├── compose.yml           Caddy, cw-agent, backup runner
-│   ├── Caddyfile             imports Caddyfile.d/<env>/*.caddy
+│   ├── Caddyfile             imports Caddyfile.d/*/<env>.caddy
 │   └── env/                  prod.env, home.env
 ├── template/                 reference project (real working app, CI-tested)
 ├── tools/                    dev tooling
@@ -163,7 +163,7 @@ wkx-<project>/
 
 ## 6. Environment Model
 
-Every namespace in the platform includes an `<env>` slot from day 1. This is **forward compatibility for per-branch preview environments** without paying for the feature up front.
+Every namespace in the platform includes an `<env>` slot from day 1, ordered **service first, then env**. The platform is service-centric: deploys, rollbacks, log queries, data restores, and audits target one service across its envs, so service-first grouping keeps a service's resources together. The env slot itself is **forward compatibility for per-branch preview environments** without paying for the feature up front.
 
 **Defaults:**
 - AWS deploys: `prod`
@@ -174,13 +174,13 @@ Every namespace in the platform includes an `<env>` slot from day 1. This is **f
 
 | Resource | Pattern |
 |---|---|
-| Hostname | `<env>-<service>.<APPS_APEX>` (flat — covered by single `*.<APPS_APEX>` wildcard cert) |
-| First-class hostname | `<env>-<service>.<APP_DOMAIN>` (or `www.<APP_DOMAIN>` for `prod`) |
-| Compose project | `<env>-<service>` (via `docker compose -p` → isolated networks/volumes) |
-| Caddy snippet | `/etc/caddy/Caddyfile.d/<env>/<service>.caddy` (subdir per env enables fast teardown) |
-| SSM Parameter | `/wkx/<env>/<service>/<KEY>` |
-| CloudWatch log group | `/wkx/<env>/<service>` |
-| Data dir | `/srv/data/<env>/<service>` |
+| Hostname | `<service>-<env>.<APPS_APEX>` (flat — covered by single `*.<APPS_APEX>` wildcard cert) |
+| First-class hostname | `<service>-<env>.<APP_DOMAIN>` (or `www.<APP_DOMAIN>` for `prod`) |
+| Compose project | `<service>-<env>` (via `docker compose -p` → isolated networks/volumes) |
+| Caddy snippet | `/etc/caddy/Caddyfile.d/<service>/<env>.caddy` (one dir per service keeps a service's snippets together) |
+| SSM Parameter | `/wkx/<service>/<env>/<KEY>` |
+| CloudWatch log group | `/wkx/<service>/<env>` |
+| Data dir | `/srv/data/<service>/<env>` |
 | ECR tag | `<sha>` or `<branch>-<sha>` (image is per-commit; env decides which tag deploys where) |
 
 **Implementation rules baked into M0–M10:**
@@ -284,7 +284,7 @@ Detailed milestones, deliverables, and hands-on artifacts live in `ROADMAP.md` a
 | M0 | Prerequisites | S | SSO into platform account; `terraform`, `docker`, `aws sts` all work |
 | M1 | Networking + DNS skeleton | M | `dig <APPS_APEX> NS` returns Cloudflare; `terraform plan` clean |
 | M2 | Graviton host | M | `aws ssm start-session` connects; `docker run hello-world` works |
-| M3 | Caddy + TLS | L | `https://prod-hello.<APPS_APEX>` returns 200 with valid TLS |
+| M3 | Caddy + TLS | L | `https://hello-prod.<APPS_APEX>` returns 200 with valid TLS |
 | M4 | Observability | M | Tail logs in CloudWatch; billing alarm fires in test mode |
 | M5 | Secrets + config | M | Rotate `/wkx/prod/hello/MESSAGE`, redeploy, page shows new value |
 | M6 | CI/CD | L | Push to `wkx-hello` main → deployed in <2 min; rollback via `git revert` |

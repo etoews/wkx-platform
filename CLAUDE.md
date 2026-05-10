@@ -1,0 +1,67 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Repository state
+
+This repo is in the **design + planning phase**. The substance today is `README.md`, `ROADMAP.md`, the design spec under `docs/superpowers/specs/`, and the milestone plans under `docs/superpowers/plans/`. No application code, Terraform, Docker, or scripts exist yet. They land milestone by milestone (M1 onward) per `ROADMAP.md`.
+
+There is therefore no build, lint, or test toolchain to invoke. Until code arrives, the relevant operations are:
+
+- Reading the design spec to answer "why" questions about decisions.
+- Reading or extending milestone plans (`docs/superpowers/plans/<date>-<m#>-<name>.md`) which use `- [ ]` checkbox syntax so an agent can execute them task by task.
+- Editing `docs/setup/m0-account-state.md` (public-safe template; the gitignored `*.local.md` sibling holds real account IDs and must never be committed).
+
+When code does land, expect: Terraform under `infra/`, host bootstrap under `host/`, Compose stack under `platform/`, Python tooling (uv-packaged) under `tools/`, and the reference project under `template/`. Layout is described in §5 of the design spec.
+
+## Architecture in one paragraph
+
+A single ARM Graviton EC2 instance in `ap-southeast-2` runs everything via Docker Compose, fronted by Caddy (TLS + routing) with Cloudflare in front for DNS/WAF/DDoS. Deploys flow `git push` → GitHub Actions (OIDC) → ECR + `aws ssm send-command` → on-box pull and `docker compose up -d`. The same Compose stack runs on a home Ubuntu server (LAN-only), with profile flags toggling the Cloudflare/CloudWatch differences. Four layers stack cleanly: **infra (Terraform)** → **host bootstrap (cloud-init / bash)** → **platform services (Caddy, agents)** → **apps (per-project repos)**. See §3, §4, §5 of `docs/superpowers/specs/2026-05-01-wkx-platform-design.md` for the full picture.
+
+## Multi-repo model
+
+This is the **platform repo** (`wkx-platform`). Each application lives in its own `wkx-<name>` repo, scaffolded by copying `template/` and substituting name/port/hostname (no cookiecutter/copier; the platform contract documented here is the spec). Cross-cutting changes ("add HEALTHCHECK to every Dockerfile") are handled by AI fanning out PRs to the `wkx-*` repos rather than templating tools.
+
+## Invariants every change must respect
+
+These are non-negotiable design rules baked into the spec. They are not enforced by tooling yet, so a reviewer (human or AI) must hold the line.
+
+1. **`env` is always explicit, never defaulted.** Per-project Terraform modules require an `env` input with no default. The deploy script requires `--env` with no default. CI workflows hardcode their target env (`pr-${{ github.event.number }}` for PR-open, `prod` for main-merge). Account-level / host-level resources have no env dimension and must not gain one.
+2. **No SSH on the box.** Port 22 stays closed. All access is via SSM Session Manager. Do not add a key pair, security group rule, or bastion.
+3. **Origin SG accepts 80/443 only from Cloudflare IPv4 + IPv6 ranges.** Pulled via the Cloudflare Terraform data source so the list stays current.
+4. **ARM64 is the default container target.** `amd64` is opt-in per project (for things destined for the x86 home server) via multi-arch build.
+5. **AWS resources carry the standard tag set** via the provider's `default_tags` block: `Project=wkx`, `ManagedBy=terraform`, plus `Env`, `Service`, `Repo` where applicable. `Project`, `Env`, `Service` are activated cost-allocation tags, so per-env / per-service spend stays queryable.
+6. **No ALB, no NAT Gateway, no RDS, no second region, no separate staging account.** Each was considered and rejected on cost/scope grounds (see §8.3 of the spec). Adding any of them is a design change, not an implementation detail.
+7. **Public files never carry real account state.** Real AWS account IDs, IdC ARNs, Cloudflare account IDs live in `docs/setup/*.local.md` (gitignored). The committed `.md` siblings are public-safe templates with placeholder values.
+
+## Naming patterns (from the env model)
+
+When generating resources, follow §6 of the design spec exactly:
+
+| Resource              | Pattern                                          |
+|-----------------------|--------------------------------------------------|
+| Hostname (Mode 3)     | `<service>-<env>.<APPS_APEX>`                    |
+| Compose project       | `<service>-<env>` (via `docker compose -p`)      |
+| Caddy snippet         | `/etc/caddy/Caddyfile.d/<service>/<env>.caddy`   |
+| SSM Parameter         | `/wkx/<service>/<env>/<KEY>`                     |
+| CloudWatch log group  | `/wkx/<service>/<env>`                           |
+| Data dir              | `/srv/data/<service>/<env>`                      |
+| ECR tag               | `<sha>` or `<branch>-<sha>`                      |
+
+`<APPS_APEX>` and `<APP_DOMAIN>` are intentional placeholders through M10; real domain registration is deferred.
+
+## Working on a milestone
+
+The repo's unit of implementation is the **milestone**, not the PR. Recommended flow:
+
+1. Open `ROADMAP.md` and the relevant section of the design spec for the target milestone.
+2. Write or update an implementation plan under `docs/superpowers/plans/<date>-m<N>-<slug>.md` using checkbox syntax so an agent can execute it task by task. Existing plan: `2026-05-01-m0-prerequisites.md`.
+3. Execute the plan one task at a time. When the milestone produces verification commands ("hands-on artifacts" in the roadmap), run them and capture results.
+
+Do not jump milestones. The critical path `M0 → M1 → M2 → M3` is sequential; later milestones assume earlier deliverables exist.
+
+## Writing conventions in this repo
+
+- New Zealand English in prose.
+- No em dashes; use commas, parentheses, or a sentence break instead.
+- Architecture and flow diagrams in markdown use mermaid code blocks, not ASCII art.

@@ -1,6 +1,6 @@
 # WKX Platform — Roadmap
 
-Build order, deliverables, and hands-on artifact at every milestone.
+Build order, deliverables, and hands-on artefact at every milestone.
 
 For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platform-design.md](docs/superpowers/specs/2026-05-01-wkx-platform-design.md).
 
@@ -14,13 +14,13 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 
 **Deliverables**
 - Fresh AWS management account (new email alias, e.g. `you+aws-mgmt@example.com`).
-- AWS Organizations enabled on the management account.
+- AWS Organisations enabled on the management account.
 - Platform member account created (email alias `you+aws-platform@example.com`).
 - IAM Identity Center on the mgmt account; SSO permission set granting access to the platform account.
 - Cloudflare account exists. (Zone-scoped API token is created in M1 after the zone exists; M0 just needs login access.)
 - Local tools installed: Terraform, Docker Desktop, mise/uv, GitHub CLI.
 
-**Hands-on artifact**
+**Hands-on artefact**
 - Log in to the platform account via IAM Identity Center SSO.
 - `terraform version`, `docker version`, `aws sts get-caller-identity` all return successfully.
 
@@ -40,7 +40,7 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
   - **No port 22 open.**
 - Cloudflare zone for the placeholder `<APPS_APEX>`.
 - All per-project Terraform modules **require** an `env` input — no default. Account-level/host-level resources don't use the env dimension.
-- **AWS resource tagging strategy.** Standardized tags applied to every Terraform-managed AWS resource via the AWS provider's `default_tags` block. Required tag keys:
+- **AWS resource tagging strategy.** Standardised tags applied to every Terraform-managed AWS resource via the AWS provider's `default_tags` block. Required tag keys:
   - `Project` = `wkx` (always)
   - `ManagedBy` = `terraform` (always)
   - `Env` = `<env>` (where the resource has an env dimension; omitted for host/account-level)
@@ -63,12 +63,12 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
   - SSM Session Manager + RunCommand
   - ECR pull
   - CloudWatch Logs/Metrics write
-  - SSM Parameter Store read by `/wkx/<env>/*` path
+  - SSM Parameter Store read by `/wkx/*` path (broad scope; service-first paths make per-service IAM the natural granularity, deferred to the M2 plan)
   - S3 write to the backups bucket
 - cloud-init user-data (`host/cloud-init.yaml`) installs:
   - Docker + Compose plugin
   - SSM agent (usually preinstalled), CloudWatch agent
-  - Mounts EBS gp3 to `/srv/data`, creates `/srv/data/<env>/` skeleton
+  - Mounts EBS gp3 to `/srv/data` (per-service subdirs created at deploy time)
   - Creates `platform` user
 
 **Hands-on artifact**
@@ -82,13 +82,13 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 **Deliverables**
 - `platform/compose.yml` deployed to the box. Caddy image is custom-built via `xcaddy` with the `caddy-dns/cloudflare` plugin (small Dockerfile in `platform/caddy/`, image pushed to ECR).
 - Caddy obtains wildcard cert for `*.<APPS_APEX>` via DNS-01 using the Cloudflare API token (stored in SSM, fetched at deploy).
-- Caddy config: top-level `Caddyfile` does `import /etc/caddy/Caddyfile.d/<env>/*.caddy`.
+- Caddy config: top-level `Caddyfile` does `import /etc/caddy/Caddyfile.d/*/<env>.caddy`.
 - "hello" smoke-test app deployed as a Compose service (initially in the platform repo; extracted to its own repo at M6).
-- Cloudflare DNS A + AAAA records for `prod-hello.<APPS_APEX>` pointing at the EIP, proxy mode ON.
+- Cloudflare DNS A + AAAA records for `hello-prod.<APPS_APEX>` pointing at the EIP, proxy mode ON.
 - Origin SG hardened to Cloudflare IP ranges only.
 
 **Hands-on artifact**
-- `https://prod-hello.<APPS_APEX>` returns 200 with valid TLS in a browser.
+- `https://hello-prod.<APPS_APEX>` returns 200 with valid TLS in a browser.
 - `curl -sI` against the EIP directly is blocked (proves SG works).
 
 ---
@@ -97,8 +97,8 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 
 **Deliverables**
 - CloudWatch agent config ships:
-  - syslog → `/wkx/<env>/system`
-  - Docker container logs (JSON file driver) → `/wkx/<env>/<service>`
+  - syslog → `/wkx/system/<env>`
+  - Docker container logs (JSON file driver) → `/wkx/<service>/<env>`
   - host metrics: CPU, memory, disk, network
 - One log group per service, created by Terraform.
 - CloudWatch dashboard: CPU, memory, disk, network, request rate (from Caddy access logs).
@@ -113,13 +113,13 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 ## M5 · Secrets + config — Size: M
 
 **Deliverables**
-- SSM Parameter Store namespace `/wkx/<env>/<service>/<KEY>`.
+- SSM Parameter Store namespace `/wkx/<service>/<env>/<KEY>`.
 - Python helper (`tools/secrets/`, packaged with uv) that reads parameters by path and renders a `.env` file at deploy time.
-- Compose env-file path standardized at `/srv/secrets/<env>/<service>.env` (gitignored, regenerated on deploy).
+- Compose env-file path standardized at `/srv/secrets/<service>/<env>.env` (gitignored, regenerated on deploy).
 - Instance role permits read-by-path; deploy script (M6) re-renders before `compose up`.
 
 **Hands-on artifact**
-- Set `/wkx/prod/hello/MESSAGE = "hello world"`.
+- Set `/wkx/hello/prod/MESSAGE = "hello world"`.
 - Run deploy → page shows the message.
 - Update parameter, redeploy → page shows new message.
 
@@ -135,8 +135,8 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
   - Push to ECR with tag `<sha>`.
   - Trigger deploy via `aws ssm send-command` invoking a script that:
     - Renders env-file from SSM (using the M5 helper).
-    - Pulls image, runs `docker compose -p <env>-<service> up -d`.
-    - Drops the project's caddy snippet at `/etc/caddy/Caddyfile.d/<env>/<service>.caddy`.
+    - Pulls image, runs `docker compose -p <service>-<env> up -d`.
+    - Drops the project's caddy snippet at `/etc/caddy/Caddyfile.d/<service>/<env>.caddy`.
     - Reloads Caddy.
 - Extract "hello" to its own repo `wkx-hello` and wire it through the new pipeline.
 - Deploy script (`tools/deploy/`) **requires** `--env` — no default. Forgetting it errors out with valid env patterns. CI workflows hardcode their target env (PR-open: `pr-<N>`; main-merge: `prod`).
@@ -220,7 +220,7 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 - Backups:
   - EBS snapshots daily, 7-day retention, via Data Lifecycle Manager.
   - Restic on the box: daily backup of `/srv/data` to S3, encrypted with a passphrase stored in SSM.
-- Restore drill: nuke a service's `/srv/data/<env>/<service>/` directory and restore from restic. Verify the service comes back healthy.
+- Restore drill: nuke a service's `/srv/data/<service>/<env>/` directory and restore from restic. Verify the service comes back healthy.
 - Runbooks (`docs/runbooks/`):
   - Recover from full instance loss
   - Resize the box
@@ -245,5 +245,5 @@ The foundation (env-aware namespacing, `mem_limit`/`cpus`, ECR lifecycle, deploy
 - Capacity guardrail: refuse to deploy a new preview if more than N (configurable) are already running.
 
 **Hands-on artifact**
-- Open a PR → comment with `https://pr-42-<service>.<APPS_APEX>` appears within minutes.
+- Open a PR → comment with `https://<service>-pr-42.<APPS_APEX>` appears within minutes.
 - Close the PR → next visit returns 404; resources cleaned up.
