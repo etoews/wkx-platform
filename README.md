@@ -1,4 +1,4 @@
-# wkx-platform
+# WKX Platform
 
 A personal Docker Compose platform for hosting side projects in two homes — AWS (public-facing) and an on-prem Ubuntu home server (LAN-only) — within an NZD $50 / month AWS budget.
 
@@ -83,10 +83,10 @@ Implementation lands milestone by milestone — `infra/`, `host/`, `platform/`, 
 
 ## Status
 
-- **M0 — Prerequisites:** complete (AWS Organizations, IAM Identity Center, Cloudflare account, local tooling).
+- **M0 — Prerequisites:** complete (AWS Organisations, IAM Identity Center, Cloudflare account, local tooling).
 - **M1 — Networking + DNS skeleton:** next.
 
-See [ROADMAP.md](ROADMAP.md) for the full sequence and per-milestone hands-on artifacts.
+See [ROADMAP.md](ROADMAP.md) for the full sequence and per-milestone hands-on artefacts.
 
 ## Read more
 
