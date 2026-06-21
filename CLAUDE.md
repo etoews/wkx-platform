@@ -32,7 +32,7 @@ These are non-negotiable design rules baked into the spec. They are not enforced
 4. **ARM64 is the default container target.** `amd64` is opt-in per project (for things destined for the x86 home server) via multi-arch build.
 5. **AWS resources carry the standard tag set** via the provider's `default_tags` block: `Project=wkx`, `ManagedBy=terraform`, plus `Env`, `Service`, `Repo` where applicable. `Project`, `Env`, `Service` are activated cost-allocation tags, so per-env / per-service spend stays queryable.
 6. **No ALB, no NAT Gateway, no RDS, no second region, no separate staging account.** Each was considered and rejected on cost/scope grounds (see §8.3 of the spec). Adding any of them is a design change, not an implementation detail.
-7. **Public files never carry real account state.** Real AWS account IDs, IdC ARNs, Cloudflare account IDs live in `docs/setup/*.local.md` (gitignored). The committed `.md` siblings are public-safe templates with placeholder values.
+7. **Public files never carry real account state.** Real AWS account IDs, IdC ARNs, Cloudflare account/zone IDs live in `docs/setup/*.local.md` (gitignored). The committed `.md` siblings are public-safe templates with placeholder values. This covers **every** committed file, not just setup templates: plan and spec docs under `docs/superpowers/` must use placeholders (`<PLATFORM_ACCOUNT_ID>`, `<CLOUDFLARE_ACCOUNT_ID>`, etc.) too, never the real identifiers.
 
 ## Naming patterns (from the env model)
 
