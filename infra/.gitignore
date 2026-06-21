@@ -1,0 +1,13 @@
+# Terraform working files
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# Local-only inputs that carry real account state (Invariant 7)
+*.local.hcl
+*.local.tfvars
+
+# Keep committed: *.example templates and .terraform.lock.hcl
+!*.example
