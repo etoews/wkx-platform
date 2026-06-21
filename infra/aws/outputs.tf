@@ -17,3 +17,13 @@ output "cloudflare_ipv6_prefix_list_id" {
   description = "Managed prefix list of Cloudflare IPv6 ranges."
   value       = aws_ec2_managed_prefix_list.cloudflare_ipv6.id
 }
+
+output "web_sg_id" {
+  description = "Security group: HTTPS (443) ingress from Cloudflare prefix lists only."
+  value       = aws_security_group.web.id
+}
+
+output "host_egress_sg_id" {
+  description = "Security group allowing all outbound."
+  value       = aws_security_group.host_egress.id
+}

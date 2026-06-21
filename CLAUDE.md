@@ -28,7 +28,7 @@ These are non-negotiable design rules baked into the spec. They are not enforced
 
 1. **`env` is always explicit, never defaulted.** Per-project Terraform modules require an `env` input with no default. The deploy script requires `--env` with no default. CI workflows hardcode their target env (`pr-${{ github.event.number }}` for PR-open, `prod` for main-merge). Account-level / host-level resources have no env dimension and must not gain one.
 2. **No SSH on the box.** Port 22 stays closed. All access is via SSM Session Manager. Do not add a key pair, security group rule, or bastion.
-3. **Origin SG accepts 80/443 only from Cloudflare IPv4 + IPv6 ranges.** Pulled via the Cloudflare Terraform data source so the list stays current.
+3. **Origin SG accepts 443 only from Cloudflare IPv4 + IPv6 ranges.** No port 80: Cloudflare reaches the origin over HTTPS in Full (strict) SSL mode, Caddy issues certs via DNS-01, and the HTTP to HTTPS redirect happens at Cloudflare's edge. The ranges are pulled via a Terraform data source against Cloudflare's published list so it stays current.
 4. **ARM64 is the default container target.** `amd64` is opt-in per project (for things destined for the x86 home server) via multi-arch build.
 5. **AWS resources carry the standard tag set** via the provider's `default_tags` block: `Project=wkx`, `ManagedBy=terraform`, plus `Env`, `Service`, `Repo` where applicable. `Project`, `Env`, `Service` are activated cost-allocation tags, so per-env / per-service spend stays queryable.
 6. **No ALB, no NAT Gateway, no RDS, no second region, no separate staging account.** Each was considered and rejected on cost/scope grounds (see §8.3 of the spec). Adding any of them is a design change, not an implementation detail.

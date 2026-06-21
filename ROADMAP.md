@@ -35,7 +35,7 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 - Terraform state backend in the platform account: S3 bucket (versioned, encrypted) with S3-native state locking (`use_lockfile`). No DynamoDB lock table (see the M1 plan for rationale).
 - VPC with one public subnet, IGW, default route, IPv6 enabled.
 - Security groups:
-  - `web` — allows 80/443 from Cloudflare IPv4 + IPv6 ranges (via Terraform data source pulling Cloudflare's published list).
+  - `web` — allows 443 only from Cloudflare IPv4 + IPv6 ranges (via Terraform data source pulling Cloudflare's published list). No port 80: Cloudflare reaches the origin over HTTPS (Full-strict), certs are DNS-01.
   - `host-egress` — allows all outbound.
   - **No port 22 open.**
 - Cloudflare zone for `wkx.dev`.

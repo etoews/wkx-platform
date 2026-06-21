@@ -254,7 +254,7 @@ Headroom: ~NZD $10/mo for occasional spikes (data transfer, log volume, an extra
 ### 8.2 Security
 
 - **No SSH (port 22 closed).** Access via SSM Session Manager — IAM-gated, audit-logged, no keys to rotate.
-- **Security group: 80/443 only from Cloudflare IP ranges.** Defense in depth — direct-to-origin attacks are dropped at the SG level. Cloudflare IP list kept current via Terraform data source.
+- **Security group: 443 only from Cloudflare IP ranges.** Defense in depth, direct-to-origin attacks are dropped at the SG level. No port 80 (Cloudflare reaches the origin over HTTPS in Full-strict mode; certs are DNS-01). Cloudflare IP list kept current via Terraform data source.
 - **CI/CD: GitHub OIDC → AWS role.** No long-lived keys. Per-project role scoped to its own ECR repo + SSM RunCommand.
 - **Auto-upgrades:** Renovate (deps, base images, Compose images, Terraform providers, GHA versions) + Ubuntu unattended-upgrades (OS security patches). Auto-merge minor/patch when CI green; major versions stay manual.
 - **Backups:** EBS snapshots daily, 7-day retention via Data Lifecycle Manager. Restic to S3 daily for `/srv/data` (encrypted, portable, file-level restore). Belt-and-suspenders.
