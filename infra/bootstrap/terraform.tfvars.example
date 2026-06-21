@@ -1,0 +1,2 @@
+# Copy to terraform.local.tfvars (gitignored) and fill from m0-account-state.local.md
+account_id = "REPLACE_WITH_12_DIGIT_PLATFORM_ACCOUNT_ID"

@@ -1,0 +1,2 @@
+# Copy to backend.local.hcl (gitignored) after the first apply prints state_bucket_name
+bucket = "wkx-tfstate-REPLACE_WITH_ACCOUNT_ID"
