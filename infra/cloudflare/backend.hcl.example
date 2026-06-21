@@ -1,0 +1,2 @@
+# Copy to backend.local.hcl (gitignored); fill from m0-account-state.local.md
+bucket = "wkx-tfstate-REPLACE_WITH_ACCOUNT_ID"
