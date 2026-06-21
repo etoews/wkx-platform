@@ -25,20 +25,20 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 - `terraform version`, `docker version`, `aws sts get-caller-identity` all return successfully.
 
 **Notes**
-- Domain registration is deferred. `<APPS_APEX>` and `<APP_DOMAIN>` remain placeholders through M10.
+- `<APP_DOMAIN>` (Mode-1 per-app domains) remains a placeholder through M10. `wkx.dev` is registered in M1.
 
 ---
 
 ## M1 · Networking + DNS skeleton — Size: M
 
 **Deliverables**
-- Terraform state backend in the platform account: S3 bucket (versioned, encrypted) + DynamoDB lock table.
+- Terraform state backend in the platform account: S3 bucket (versioned, encrypted) with S3-native state locking (`use_lockfile`). No DynamoDB lock table (see the M1 plan for rationale).
 - VPC with one public subnet, IGW, default route, IPv6 enabled.
 - Security groups:
   - `web` — allows 80/443 from Cloudflare IPv4 + IPv6 ranges (via Terraform data source pulling Cloudflare's published list).
   - `host-egress` — allows all outbound.
   - **No port 22 open.**
-- Cloudflare zone for the placeholder `<APPS_APEX>`.
+- Cloudflare zone for `wkx.dev`.
 - All per-project Terraform modules **require** an `env` input — no default. Account-level/host-level resources don't use the env dimension.
 - **AWS resource tagging strategy.** Standardised tags applied to every Terraform-managed AWS resource via the AWS provider's `default_tags` block. Required tag keys:
   - `Project` = `wkx` (always)
@@ -49,7 +49,7 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
   Activate cost allocation tags in the Billing console for `Project`, `Env`, `Service` so per-env / per-service spend is queryable.
 
 **Hands-on artifact**
-- `dig <APPS_APEX> NS` returns Cloudflare nameservers.
+- `dig wkx.dev NS` returns Cloudflare nameservers.
 - `terraform plan` runs clean from a fresh checkout.
 
 ---
@@ -81,14 +81,14 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 
 **Deliverables**
 - `platform/compose.yml` deployed to the box. Caddy image is custom-built via `xcaddy` with the `caddy-dns/cloudflare` plugin (small Dockerfile in `platform/caddy/`, image pushed to ECR).
-- Caddy obtains wildcard cert for `*.<APPS_APEX>` via DNS-01 using the Cloudflare API token (stored in SSM, fetched at deploy).
+- Caddy obtains wildcard cert for `*.wkx.dev` via DNS-01 using the Cloudflare API token (stored in SSM, fetched at deploy).
 - Caddy config: top-level `Caddyfile` does `import /etc/caddy/Caddyfile.d/*/<env>.caddy`.
 - "hello" smoke-test app deployed as a Compose service (initially in the platform repo; extracted to its own repo at M6).
-- Cloudflare DNS A + AAAA records for `hello-prod.<APPS_APEX>` pointing at the EIP, proxy mode ON.
+- Cloudflare DNS A + AAAA records for `hello.wkx.dev` pointing at the EIP, proxy mode ON.
 - Origin SG hardened to Cloudflare IP ranges only.
 
 **Hands-on artifact**
-- `https://hello-prod.<APPS_APEX>` returns 200 with valid TLS in a browser.
+- `https://hello.wkx.dev` returns 200 with valid TLS in a browser.
 - `curl -sI` against the EIP directly is blocked (proves SG works).
 
 ---
@@ -189,7 +189,7 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 
 **Hands-on artifact**
 - `uv run wkx-scaffold notes` → new `wkx-notes` repo on GitHub + PR opened against `wkx-platform`.
-- After merging both, `https://prod-notes.<APPS_APEX>` is live within 10 minutes of starting.
+- After merging both, `https://notes.wkx.dev` is live within 10 minutes of starting.
 
 ---
 
@@ -245,5 +245,5 @@ The foundation (env-aware namespacing, `mem_limit`/`cpus`, ECR lifecycle, deploy
 - Capacity guardrail: refuse to deploy a new preview if more than N (configurable) are already running.
 
 **Hands-on artifact**
-- Open a PR → comment with `https://<service>-pr-42.<APPS_APEX>` appears within minutes.
+- Open a PR → comment with `https://<service>-pr-42.wkx.dev` appears within minutes.
 - Close the PR → next visit returns 404; resources cleaned up.

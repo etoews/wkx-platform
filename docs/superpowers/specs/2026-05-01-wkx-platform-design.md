@@ -25,7 +25,7 @@ Status: Approved (ready for implementation planning)
 - Managed databases (RDS). Containers handle DBs.
 - Application Load Balancer or NAT Gateway. Both are cost-prohibitive.
 - A staging environment as a separate AWS account. The env dimension (see §6) covers preview/staging-style needs without dedicated infrastructure.
-- Real domain registration during initial build. Placeholder apex (`<APPS_APEX>`) is wired through; real domains are a config swap.
+- Real domain registration during initial build. The apex (`wkx.dev`) is registered in M1; `<APP_DOMAIN>` per-app domains remain placeholders.
 - Workers/cron/bots are out of launch scope but the architecture (Compose + EBS + ECR) supports them when added later.
 
 ## 3. Architecture Overview
@@ -174,7 +174,7 @@ Every namespace in the platform includes an `<env>` slot from day 1, ordered **s
 
 | Resource | Pattern |
 |---|---|
-| Hostname | `<service>-<env>.<APPS_APEX>` (flat — covered by single `*.<APPS_APEX>` wildcard cert) |
+| Hostname | prod: `<service>.wkx.dev` · non-prod: `<service>-<env>.wkx.dev` (flat — covered by single `*.wkx.dev` wildcard cert) |
 | First-class hostname | `<service>-<env>.<APP_DOMAIN>` (or `www.<APP_DOMAIN>` for `prod`) |
 | Compose project | `<service>-<env>` (via `docker compose -p` → isolated networks/volumes) |
 | Caddy snippet | `/etc/caddy/Caddyfile.d/<service>/<env>.caddy` (one dir per service keeps a service's snippets together) |
@@ -182,6 +182,8 @@ Every namespace in the platform includes an `<env>` slot from day 1, ordered **s
 | CloudWatch log group | `/wkx/<service>/<env>` |
 | Data dir | `/srv/data/<service>/<env>` |
 | ECR tag | `<sha>` or `<branch>-<sha>` (image is per-commit; env decides which tag deploys where) |
+
+The public hostname hides the env for `prod` (so users see `hello.wkx.dev`, never `hello-prod.wkx.dev`); every internal namespace keeps the explicit `<service>-<env>` form. This presentation choice does not weaken the explicit-env rule — deploys still name their env.
 
 **Implementation rules baked into M0–M10:**
 
@@ -268,7 +270,7 @@ Headroom: ~NZD $10/mo for occasional spikes (data transfer, log volume, an extra
 ### 8.4 Deferred — architecture supports, not built day 1
 
 - **Workers / cron / bots.** Compose handles them when ready. No platform rework.
-- **Real domain registration.** Placeholder `<APPS_APEX>` through M0–M10. Swap-in is config.
+- **Per-app domain registration.** `<APP_DOMAIN>` (Mode-1 first-class domains) remain placeholders. The shared apex `wkx.dev` is registered in M1.
 - **Bigger compute.** t4g.medium is the in-budget ceiling. t4g.large is the documented upgrade path.
 - **External access to home server.** LAN-only today. Cloudflare Tunnel + Access slots in cleanly later if needed.
 - **Per-branch preview environments.** Foundation built throughout (§6). The actual GHA workflow is M11.
@@ -282,11 +284,11 @@ Detailed milestones, deliverables, and hands-on artifacts live in `ROADMAP.md` a
 | # | Name | Size | Hands-on artifact |
 |---|---|---|---|
 | M0 | Prerequisites | S | SSO into platform account; `terraform`, `docker`, `aws sts` all work |
-| M1 | Networking + DNS skeleton | M | `dig <APPS_APEX> NS` returns Cloudflare; `terraform plan` clean |
+| M1 | Networking + DNS skeleton | M | `dig wkx.dev NS` returns Cloudflare; `terraform plan` clean |
 | M2 | Graviton host | M | `aws ssm start-session` connects; `docker run hello-world` works |
-| M3 | Caddy + TLS | L | `https://hello-prod.<APPS_APEX>` returns 200 with valid TLS |
+| M3 | Caddy + TLS | L | `https://hello.wkx.dev` returns 200 with valid TLS |
 | M4 | Observability | M | Tail logs in CloudWatch; billing alarm fires in test mode |
-| M5 | Secrets + config | M | Rotate `/wkx/prod/hello/MESSAGE`, redeploy, page shows new value |
+| M5 | Secrets + config | M | Rotate `/wkx/hello/prod/MESSAGE`, redeploy, page shows new value |
 | M6 | CI/CD | L | Push to `wkx-hello` main → deployed in <2 min; rollback via `git revert` |
 | M7 | Auto-upgrades | M | First Renovate auto-PR appears and merges itself |
 | M8 | "Add a project" workflow | L | Scaffold + deploy a fresh project end-to-end in <10 min |
@@ -313,7 +315,7 @@ Detailed milestones, deliverables, and hands-on artifacts live in `ROADMAP.md` a
 
 | Term | Meaning |
 |---|---|
-| `<APPS_APEX>` | Placeholder for the apex domain hosting Mode-3 (subdomain) second-class apps. Decided at deploy time. |
+| `wkx.dev` | The apex domain hosting Mode-3 (subdomain) second-class apps. Registered in M1. |
 | `<APP_DOMAIN>` | Placeholder for a Mode-1 first-class own-domain app. Decided per project. |
 | `<env>` | Environment slot. `prod` (default cloud), `home` (on-prem), or `pr-<N>` / `feat-<slug>` for previews. |
 | `<service>` | A single deployable unit (one app's main container). |
