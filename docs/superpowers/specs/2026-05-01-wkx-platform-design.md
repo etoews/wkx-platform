@@ -313,13 +313,4 @@ Detailed milestones, deliverables, and hands-on artifacts live in `ROADMAP.md` a
 
 ## 11. Glossary
 
-| Term | Meaning |
-|---|---|
-| `wingkongexchange.dev` | The apex domain hosting Mode-3 (subdomain) second-class apps. Registered in M1. |
-| `<APP_DOMAIN>` | Placeholder for a Mode-1 first-class own-domain app. Decided per project. |
-| `<env>` | Environment slot. `prod` (default cloud), `home` (on-prem), or `pr-<N>` / `feat-<slug>` for previews. |
-| `<service>` | A single deployable unit (one app's main container). |
-| Mode 1 | First-class routing: each app on its own apex domain. |
-| Mode 3 | Second-class routing: each app on a subdomain of a shared apex. |
-| Platform repo | `wkx-platform` — owns infra, host, platform services, project template. |
-| Project repo | `wkx-<name>` — one per app, scaffolded from the template. |
+The canonical ubiquitous-language glossary lives at [`/CONTEXT.md`](../../../CONTEXT.md). See it for current term definitions (App, Project, Service, env, Mode 1/3, and the rest). This section is intentionally just a pointer so the two do not drift apart.
