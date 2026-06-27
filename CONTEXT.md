@@ -10,13 +10,13 @@ The shared substrate (host, Caddy, infrastructure, deploy tooling) that runs per
 The shared substrate this repo builds: host, Caddy, infrastructure, and deploy tooling. The thing projects run *on*.
 
 **App**:
-The umbrella term for a single deployable thing, at the altitude where the project/service distinction does not matter ("the hello app"). One app resolves into exactly one Project (its repo) and one Service (its running unit); reach for those two when the distinction matters.
+The umbrella term for one project and the service(s) it runs, taken as a whole, at the altitude where the project/service distinction does not matter ("the hello app"). One app is one Project (its repo), which defines one or more Services. Reach for Project or Service when the distinction matters.
 
 **Project**:
 One app's source repo, `wkx-<name>`, scaffolded from the reference project. The unit of source control and scaffolding: code, `compose.yml`, `caddy.snippet`, deploy workflow, issues, history. One per app. Distinct from a Compose project.
 
 **Service**:
-A single deployable unit: one app's main container. The `<service>` token names it across every runtime namespace (hostname, Compose project, SSM path, log group, data dir). The unit of deployment, routing, and operations. One per project, deployed once per env. Distinct from a Compose service: the Service is the main container, the one with a hostname.
+A single deployable unit: one main container (plus any sidecars). The `<service>` token names it across every runtime namespace (hostname, Compose project, SSM path, log group, data dir). The unit of deployment, routing, and operations. A project usually defines one service, but may define several; each is deployed once per env. Distinct from a Compose service: a Service is a main container with a hostname, not a sidecar.
 
 **Compose project**:
 The `<service>-<env>` namespace that isolates one service-env's containers, networks, and volumes, set via `docker compose -p` (for example `hello-prod`). Not the same thing as a Project (the `wkx-<name>` repo), despite the shared word.
