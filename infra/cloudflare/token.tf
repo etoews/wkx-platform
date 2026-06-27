@@ -7,7 +7,7 @@
 #
 # The permission group ID below is Cloudflare's stable, account-independent
 # "DNS Write" group, verified against this account's token permission groups
-# (GET /accounts/<id>/tokens/permission_groups). Scoped to the wkx.dev zone only.
+# (GET /accounts/<id>/tokens/permission_groups). Scoped to the wingkongexchange.dev zone only.
 resource "cloudflare_account_token" "dns_edit" {
   account_id = var.cloudflare_account_id
   name       = "wkx-caddy-dns01"

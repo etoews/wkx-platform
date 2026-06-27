@@ -8,7 +8,7 @@
 - State keys: `bootstrap/`, `aws/`, `cloudflare/`
 
 ## Cloudflare
-- Apex: `wkx.dev`
+- Apex: `wingkongexchange.dev`
 - Zone ID: `<32-char-hex>`
 - Nameservers: `<ns1>.ns.cloudflare.com`, `<ns2>.ns.cloudflare.com`
 - Caddy DNS-01 token (`wkx-caddy-dns01`): stored in `m1-infra-state.local.md`; moves to SSM in M5
@@ -22,6 +22,6 @@
 
 ## M1 status
 - M1 completed: 2026-06-21.
-- Hands-on artefact: `dig wkx.dev NS` returns Cloudflare nameservers; `terraform plan` is clean across all three roots from a fresh checkout.
+- Hands-on artefact: `dig wingkongexchange.dev NS` returns Cloudflare nameservers; `terraform plan` is clean across all three roots from a fresh checkout.
 - Manual follow-up: activate cost-allocation tags `Project`, `Env`, `Service` in the Billing console (one-time; `Env`/`Service` activate ahead of the per-service resources that arrive in M6).
 - Ready for M2: Graviton host.

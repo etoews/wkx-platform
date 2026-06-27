@@ -40,7 +40,7 @@ When generating resources, follow §6 of the design spec exactly:
 
 | Resource              | Pattern                                          |
 |-----------------------|--------------------------------------------------|
-| Hostname (Mode 3)     | prod: `<service>.wkx.dev` · else: `<service>-<env>.wkx.dev` |
+| Hostname (Mode 3)     | prod: `<service>.wingkongexchange.dev` · else: `<service>-<env>.wingkongexchange.dev` |
 | Compose project       | `<service>-<env>` (via `docker compose -p`)      |
 | Caddy snippet         | `/etc/caddy/Caddyfile.d/<service>/<env>.caddy`   |
 | SSM Parameter         | `/wkx/<service>/<env>/<KEY>`                     |
@@ -48,7 +48,7 @@ When generating resources, follow §6 of the design spec exactly:
 | Data dir              | `/srv/data/<service>/<env>`                      |
 | ECR tag               | `<sha>` or `<branch>-<sha>`                      |
 
-`<APP_DOMAIN>` is an intentional placeholder through M10. `<APPS_APEX>` is now `wkx.dev` (registered in M1).
+`<APP_DOMAIN>` is an intentional placeholder through M10. `<APPS_APEX>` is now `wingkongexchange.dev` (registered in M1).
 
 ## Working on a milestone
 

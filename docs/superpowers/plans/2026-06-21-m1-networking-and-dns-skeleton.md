@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Stand up the Terraform foundation for the platform — a self-hosted S3 state backend, a public-subnet VPC with IPv6, Cloudflare-only security groups, and a real Cloudflare zone for `wkx.dev` — so that `dig wkx.dev NS` returns Cloudflare nameservers and `terraform plan` runs clean from a fresh checkout.
+**Goal:** Stand up the Terraform foundation for the platform — a self-hosted S3 state backend, a public-subnet VPC with IPv6, Cloudflare-only security groups, and a real Cloudflare zone for `wingkongexchange.dev` — so that `dig wingkongexchange.dev NS` returns Cloudflare nameservers and `terraform plan` runs clean from a fresh checkout.
 
 **Architecture:** Three independent Terraform root modules under `infra/`, each with its own state file keyed in one shared S3 bucket. `infra/bootstrap/` creates that bucket on local state then migrates its own state into it (resolving the chicken-and-egg). `infra/aws/` builds the VPC, IPv6, security groups, and two AWS managed prefix lists populated from Cloudflare's published IP list (fetched via the `http` data source, so this root needs no Cloudflare credential). `infra/cloudflare/` imports the registrar-created zone and mints the zone-scoped DNS token Caddy will use in M3. State locking is S3-native (`use_lockfile`), so there is no DynamoDB table.
 
@@ -21,7 +21,7 @@ Every task implicitly inherits these. Values are copied verbatim from the design
 - **Standard tag set via `default_tags`:** `Project = wkx`, `ManagedBy = terraform`, `Repo = wkx-platform`. `Env` and `Service` are **omitted** for every M1 resource — all of them are account/host-level, not per-env or per-service.
 - **No real account state in committed files.** Real AWS account ID, Cloudflare account ID, Cloudflare zone ID, and any API token live only in `docs/setup/*.local.md` (gitignored) and in gitignored `*.local.hcl` / `*.local.tfvars` Terraform inputs. Committed `.example` siblings carry placeholders. (Invariant 7.)
 - **Per-project Terraform modules require an `env` input with no default.** M1 builds no per-project module (first one, `ecr-repo`, is M6); this rule is *documented* here and enforced from M6 on.
-- **Naming — public hostname is env-conditional** (M1 brainstorm decision): prod → `<service>.wkx.dev` (env hidden); non-prod → `<service>-<env>.wkx.dev`. All *internal* namespaces stay fully `<service>-<env>` (Compose project, Caddy snippet path, SSM path, log group, data dir).
+- **Naming — public hostname is env-conditional** (M1 brainstorm decision): prod → `<service>.wingkongexchange.dev` (env hidden); non-prod → `<service>-<env>.wingkongexchange.dev`. All *internal* namespaces stay fully `<service>-<env>` (Compose project, Caddy snippet path, SSM path, log group, data dir).
 - **Writing conventions:** New Zealand English in prose. No em dashes. Diagrams in mermaid, never ASCII.
 - **Credentials come from the environment, never from code:** AWS via `AWS_PROFILE=wkx-platform` (SSO); Cloudflare via the `CLOUDFLARE_API_TOKEN` env var.
 
@@ -29,7 +29,7 @@ Every task implicitly inherits these. Values are copied verbatim from the design
 
 - Platform AWS account ID: `<PLATFORM_ACCOUNT_ID>`
 - Cloudflare account ID: `<CLOUDFLARE_ACCOUNT_ID>`
-- Cloudflare zone ID for `wkx.dev`: established in Task 0.
+- Cloudflare zone ID for `wingkongexchange.dev`: established in Task 0.
 
 ---
 
@@ -83,15 +83,15 @@ docs/setup/m1-infra-state.local.md     gitignored real values (zone id, token, n
 
 **Why:** Like the M0 account-creation steps, these require a human in the browser. Terraform's responsibility starts at the zone, not the registration. Everything downstream needs the domain registered, the zone's ID, and an initial Cloudflare token to authenticate the provider.
 
-- [ ] **Step 1: Register `wkx.dev` via Cloudflare Registrar**
+- [ ] **Step 1: Register `wingkongexchange.dev` via Cloudflare Registrar**
 
-In the Cloudflare dashboard → **Domain Registration → Register Domains** → search `wkx.dev` → register (~USD $12/yr). Registering through Cloudflare auto-creates an **active zone** with Cloudflare nameservers assigned, so there is no nameserver-repointing step.
+In the Cloudflare dashboard → **Domain Registration → Register Domains** → search `wingkongexchange.dev` → register (~USD $12/yr). Registering through Cloudflare auto-creates an **active zone** with Cloudflare nameservers assigned, so there is no nameserver-repointing step.
 
-If `.dev` is unavailable through Cloudflare Registrar at registration time, the fallback is: register `wkx.dev` at Porkbun or Namecheap (~USD $12), then in Cloudflare add a zone for `wkx.dev`, then set the registrar's nameservers to the two Cloudflare nameservers shown. The rest of this plan is identical either way.
+If `.dev` is unavailable through Cloudflare Registrar at registration time, the fallback is: register `wingkongexchange.dev` at Porkbun or Namecheap (~USD $12), then in Cloudflare add a zone for `wingkongexchange.dev`, then set the registrar's nameservers to the two Cloudflare nameservers shown. The rest of this plan is identical either way.
 
 - [ ] **Step 2: Record the zone ID**
 
-Cloudflare dashboard → select the `wkx.dev` zone → **Overview** → right sidebar shows **Zone ID** (32-char hex). Copy it.
+Cloudflare dashboard → select the `wingkongexchange.dev` zone → **Overview** → right sidebar shows **Zone ID** (32-char hex). Copy it.
 
 - [ ] **Step 3: Create an initial Cloudflare API token for Terraform**
 
@@ -99,7 +99,7 @@ Cloudflare dashboard → **My Profile → API Tokens → Create Token → Create
 - Token name: `wkx-terraform-bootstrap`
 - Permissions: `Account` → `API Tokens` → `Edit`; `Zone` → `Zone` → `Edit`; `Zone` → `DNS` → `Edit`.
 - Account Resources: Include → your account.
-- Zone Resources: Include → Specific zone → `wkx.dev`.
+- Zone Resources: Include → Specific zone → `wingkongexchange.dev`.
 - Create, then copy the token value (shown once).
 
 This broader token is only ever used locally to run the `cloudflare` root. Terraform will mint a *narrower* zone-scoped DNS token (Task 6) for Caddy's runtime use.
@@ -111,7 +111,7 @@ Append (this file is gitignored):
 ```markdown
 ## M1 — Cloudflare (added during M1)
 
-- Apex domain registered: wkx.dev (Cloudflare Registrar)
+- Apex domain registered: wingkongexchange.dev (Cloudflare Registrar)
 - Zone ID: <32-char-hex>
 - Terraform bootstrap token (wkx-terraform-bootstrap): <token-value>   # local use only
 ```
@@ -121,7 +121,7 @@ Append (this file is gitignored):
 ```bash
 export CLOUDFLARE_API_TOKEN="<token-value-from-step-3>"
 curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-  "https://api.cloudflare.com/client/v4/zones?name=wkx.dev" | \
+  "https://api.cloudflare.com/client/v4/zones?name=wingkongexchange.dev" | \
   python3 -c "import sys,json; z=json.load(sys.stdin)['result'][0]; print('id:', z['id']); print('status:', z['status']); print('name_servers:', z['name_servers'])"
 ```
 
@@ -951,7 +951,7 @@ variable "cloudflare_account_id" {
 variable "apps_apex" {
   description = "Apex domain for Mode-3 apps."
   type        = string
-  default     = "wkx.dev"
+  default     = "wingkongexchange.dev"
 }
 ```
 
@@ -1002,7 +1002,7 @@ resource "cloudflare_api_token" "dns_edit" {
 data "cloudflare_api_token_permission_groups_list" "all" {}
 ```
 
-> If the permission-groups data source or the `DNS Write` group name differs in the installed v5 minor version, list them with the verification command in Step 8 and adjust the lookup. The goal is a token scoped to **DNS:Edit on the `wkx.dev` zone only**.
+> If the permission-groups data source or the `DNS Write` group name differs in the installed v5 minor version, list them with the verification command in Step 8 and adjust the lookup. The goal is a token scoped to **DNS:Edit on the `wingkongexchange.dev` zone only**.
 
 - [ ] **Step 7: Write `infra/cloudflare/outputs.tf`**
 
@@ -1037,7 +1037,7 @@ bucket = "wkx-tfstate-REPLACE_WITH_ACCOUNT_ID"
 ```hcl
 # Copy to terraform.local.tfvars (gitignored); fill from m0-account-state.local.md
 cloudflare_account_id = "REPLACE_WITH_CLOUDFLARE_ACCOUNT_ID"
-apps_apex             = "wkx.dev"
+apps_apex             = "wingkongexchange.dev"
 ```
 
 - [ ] **Step 9: Init, then import the existing zone**
@@ -1091,7 +1091,7 @@ git add infra/cloudflare/versions.tf infra/cloudflare/backend.tf infra/cloudflar
         infra/cloudflare/variables.tf infra/cloudflare/zone.tf infra/cloudflare/token.tf \
         infra/cloudflare/outputs.tf infra/cloudflare/backend.hcl.example \
         infra/cloudflare/terraform.tfvars.example infra/cloudflare/.terraform.lock.hcl
-git commit -m "infra(m1): import wkx.dev Cloudflare zone and mint zone-scoped DNS token"
+git commit -m "infra(m1): import wingkongexchange.dev Cloudflare zone and mint zone-scoped DNS token"
 ```
 
 (Verify `git status` shows no `*.local.*` files staged.)
@@ -1102,12 +1102,12 @@ git commit -m "infra(m1): import wkx.dev Cloudflare zone and mint zone-scoped DN
 
 **Files:** none (verification only).
 
-**Why:** This is the M1 deliverable from `ROADMAP.md`: `dig wkx.dev NS` returns Cloudflare nameservers, and `terraform plan` runs clean from a fresh checkout.
+**Why:** This is the M1 deliverable from `ROADMAP.md`: `dig wingkongexchange.dev NS` returns Cloudflare nameservers, and `terraform plan` runs clean from a fresh checkout.
 
 - [ ] **Step 1: `dig` the nameservers**
 
 ```bash
-dig +short wkx.dev NS
+dig +short wingkongexchange.dev NS
 ```
 
 Expected: two `*.ns.cloudflare.com` records (matching `name_servers` from Task 6). If you used the third-party-registrar fallback in Task 0 and this is empty, the registrar's nameservers have not propagated yet — set them to the Cloudflare pair and wait (up to a few hours), then re-run.
@@ -1146,7 +1146,7 @@ Append the `dig` output and the three clean-plan confirmations to `docs/setup/m1
 - Modify: `ROADMAP.md`, `docs/superpowers/specs/2026-05-01-wkx-platform-design.md`, `CLAUDE.md`, `README.md`
 - Create: `docs/setup/m1-infra-state.md` (public-safe template)
 
-**Why:** `wkx.dev` is now real, so `<APPS_APEX>` stops being a placeholder; the hostname convention now hides `-env` for prod; and the locking deliverable changed to S3-native.
+**Why:** `wingkongexchange.dev` is now real, so `<APPS_APEX>` stops being a placeholder; the hostname convention now hides `-env` for prod; and the locking deliverable changed to S3-native.
 
 - [ ] **Step 1: ROADMAP.md — switch the M1 locking deliverable to S3-native**
 
@@ -1164,25 +1164,25 @@ with:
 
 - [ ] **Step 2: ROADMAP.md — fix hostname examples for the env-conditional convention**
 
-In M3 deliverables and hands-on artifact, replace `hello-prod.<APPS_APEX>` with `hello.wkx.dev`. In M8's hands-on artifact, replace `https://prod-notes.<APPS_APEX>` with `https://notes.wkx.dev`. While here, fix the stale env-first SSM path in M5's deliverables/artifact (`/wkx/prod/hello/MESSAGE` → `/wkx/hello/prod/MESSAGE`) to match the service-first convention in spec §6. Leave M11's `<service>-pr-42.<APPS_APEX>` as `<service>-pr-42.wkx.dev` (non-prod keeps the env).
+In M3 deliverables and hands-on artifact, replace `hello-prod.<APPS_APEX>` with `hello.wingkongexchange.dev`. In M8's hands-on artifact, replace `https://prod-notes.<APPS_APEX>` with `https://notes.wingkongexchange.dev`. While here, fix the stale env-first SSM path in M5's deliverables/artifact (`/wkx/prod/hello/MESSAGE` → `/wkx/hello/prod/MESSAGE`) to match the service-first convention in spec §6. Leave M11's `<service>-pr-42.<APPS_APEX>` as `<service>-pr-42.wingkongexchange.dev` (non-prod keeps the env).
 
 - [ ] **Step 3: design spec §6 — env-conditional hostname**
 
-In the naming-conventions table, replace the Hostname row value `<service>-<env>.<APPS_APEX>` with: `prod: <service>.wkx.dev · non-prod: <service>-<env>.wkx.dev`. Add a sentence beneath the table: "The public hostname hides the env for `prod` (so users see `hello.wkx.dev`, never `hello-prod.wkx.dev`); every internal namespace keeps the explicit `<service>-<env>` form. This presentation choice does not weaken the explicit-env rule — deploys still name their env."
+In the naming-conventions table, replace the Hostname row value `<service>-<env>.<APPS_APEX>` with: `prod: <service>.wingkongexchange.dev · non-prod: <service>-<env>.wingkongexchange.dev`. Add a sentence beneath the table: "The public hostname hides the env for `prod` (so users see `hello.wingkongexchange.dev`, never `hello-prod.wingkongexchange.dev`); every internal namespace keeps the explicit `<service>-<env>` form. This presentation choice does not weaken the explicit-env rule — deploys still name their env."
 
-- [ ] **Step 4: Replace `<APPS_APEX>` with `wkx.dev` across prose**
+- [ ] **Step 4: Replace `<APPS_APEX>` with `wingkongexchange.dev` across prose**
 
-Update remaining `<APPS_APEX>` occurrences in `README.md`, `CLAUDE.md`, and the design spec glossary to `wkx.dev`, except keep `<APP_DOMAIN>` (Mode-1 per-app domains) as a placeholder. In `CLAUDE.md`, update the line "`<APPS_APEX>` and `<APP_DOMAIN>` are intentional placeholders through M10" to "`<APP_DOMAIN>` is an intentional placeholder through M10. `<APPS_APEX>` is now `wkx.dev` (registered in M1)." Verify with:
+Update remaining `<APPS_APEX>` occurrences in `README.md`, `CLAUDE.md`, and the design spec glossary to `wingkongexchange.dev`, except keep `<APP_DOMAIN>` (Mode-1 per-app domains) as a placeholder. In `CLAUDE.md`, update the line "`<APPS_APEX>` and `<APP_DOMAIN>` are intentional placeholders through M10" to "`<APP_DOMAIN>` is an intentional placeholder through M10. `<APPS_APEX>` is now `wingkongexchange.dev` (registered in M1)." Verify with:
 
 ```bash
 grep -rn "APPS_APEX" README.md CLAUDE.md ROADMAP.md docs/superpowers/specs/
 ```
 
-Expected: only deliberate residual references (e.g. inside the M1 plan itself) remain; prose uses `wkx.dev`.
+Expected: only deliberate residual references (e.g. inside the M1 plan itself) remain; prose uses `wingkongexchange.dev`.
 
 - [ ] **Step 5: CLAUDE.md naming table — env-conditional hostname**
 
-In the "Naming patterns" table, change the `Hostname (Mode 3)` row pattern from `<service>-<env>.<APPS_APEX>` to `prod: <service>.wkx.dev · else: <service>-<env>.wkx.dev`.
+In the "Naming patterns" table, change the `Hostname (Mode 3)` row pattern from `<service>-<env>.<APPS_APEX>` to `prod: <service>.wingkongexchange.dev · else: <service>-<env>.wingkongexchange.dev`.
 
 - [ ] **Step 6: Create `docs/setup/m1-infra-state.md` (public-safe template)**
 
@@ -1197,7 +1197,7 @@ In the "Naming patterns" table, change the `Hostname (Mode 3)` row pattern from 
 - State keys: `bootstrap/`, `aws/`, `cloudflare/`
 
 ## Cloudflare
-- Apex: `wkx.dev`
+- Apex: `wingkongexchange.dev`
 - Zone ID: `<32-char-hex>`
 - Nameservers: `<ns1>.ns.cloudflare.com`, `<ns2>.ns.cloudflare.com`
 - Caddy DNS-01 token (`wkx-caddy-dns01`): stored in `m1-infra-state.local.md`; moves to SSM in M5
@@ -1210,7 +1210,7 @@ In the "Naming patterns" table, change the `Hostname (Mode 3)` row pattern from 
 
 ```bash
 git add ROADMAP.md docs/superpowers/specs/2026-05-01-wkx-platform-design.md CLAUDE.md README.md docs/setup/m1-infra-state.md
-git commit -m "docs(m1): make wkx.dev concrete, env-conditional hostname, S3-native locking"
+git commit -m "docs(m1): make wingkongexchange.dev concrete, env-conditional hostname, S3-native locking"
 ```
 
 ---
@@ -1240,7 +1240,7 @@ Expected: includes `Project=wkx`, `ManagedBy=terraform`, `Repo=wkx-platform`, `N
 ```markdown
 ## M1 status
 - M1 completed: 2026-06-21 (replace with actual date)
-- Hands-on artifact: `dig wkx.dev NS` returns Cloudflare nameservers; `terraform plan` clean across all three roots.
+- Hands-on artifact: `dig wingkongexchange.dev NS` returns Cloudflare nameservers; `terraform plan` clean across all three roots.
 - Ready for M2: Graviton host.
 ```
 

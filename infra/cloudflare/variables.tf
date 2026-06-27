@@ -6,5 +6,5 @@ variable "cloudflare_account_id" {
 variable "apps_apex" {
   description = "Apex domain for Mode-3 apps."
   type        = string
-  default     = "wkx.dev"
+  default     = "wingkongexchange.dev"
 }
