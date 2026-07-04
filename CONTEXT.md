@@ -37,6 +37,14 @@ The on-prem Ubuntu (x86) box that runs the same Compose stack, reachable on the 
 **Origin**:
 The host as Cloudflare sees it. The only source the origin security group admits on 443 is Cloudflare's published IP ranges.
 
+**Data volume**:
+The persistent volume mounted at `/srv/data` on a Host, holding all Service data. It outlives the Host: replacing the box never touches it. The Host's root volume, by contrast, is disposable.
+_Avoid_: EBS volume, disk, storage (ambiguous between root and data)
+
+**platform user**:
+The operating-system user on a Host that owns the Data volume and runs the Compose workloads. Created by host bootstrap on both the cloud Host and the Home server.
+_Avoid_: service account, deploy user
+
 **Reference project**:
 The real, CI-tested working app under `template/` that new projects are copied from. There is no templating tool; copying plus name/port/hostname substitution is the mechanism.
 _Avoid_: boilerplate, scaffold (the noun), cookiecutter
