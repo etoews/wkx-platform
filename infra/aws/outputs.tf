@@ -27,3 +27,23 @@ output "host_egress_sg_id" {
   description = "Security group allowing all outbound."
   value       = aws_security_group.host_egress.id
 }
+
+output "instance_id" {
+  description = "EC2 instance ID of the Host (SSM session target)."
+  value       = aws_instance.host.id
+}
+
+output "host_public_ip" {
+  description = "Elastic IP attached to the Host (M3 DNS records target this)."
+  value       = aws_eip.host.public_ip
+}
+
+output "data_volume_id" {
+  description = "EBS volume ID of the Data volume (/srv/data)."
+  value       = aws_ebs_volume.data.id
+}
+
+output "instance_profile_name" {
+  description = "IAM instance profile attached to the Host."
+  value       = aws_iam_instance_profile.host.name
+}
