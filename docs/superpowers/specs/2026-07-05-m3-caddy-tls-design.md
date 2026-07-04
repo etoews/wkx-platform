@@ -5,7 +5,7 @@ Status: Approved (ready for implementation planning)
 
 ## 1. Scope
 
-M3 puts the platform services layer (Layer 3) on the Host: a custom-built Caddy terminating TLS with one wildcard certificate, a routing contract that projects plug into with a single file, and a real `hello` app proving the whole path from browser to container. Deploys are manual through an SSM session; automation is M6's job.
+M3 puts the platform services layer (Layer 3) on the Host: a custom-built Caddy terminating TLS with one wildcard certificate, a routing contract that projects plug into with a single file, and a real `hello` app proving the whole path from browser to container. It also makes one small Layer 2 change: cloud-init gains `git` and the AWS CLI (prerequisites of the deploy model), which replaces the Host per ADR 0017. Deploys are manual through an SSM session; automation is M6's job.
 
 **Hands-on artefacts** (from `ROADMAP.md`, unchanged):
 
@@ -38,7 +38,7 @@ Port 80 stays closed end to end: Cloudflare redirects HTTP at its edge, Caddy is
 |---|---|---|
 | hello realisation | Real mini-app with its own Dockerfile and ECR repo | Exercises the full per-project contract (build, ECR, Compose, snippet) from day one; genuinely extractable at M6 and reference-worthy at M8. |
 | Getting files onto the Host | Git clone of `wkx-platform` on the box | Repo is public, so no auth; deploys are `git pull` + `compose up` in an SSM session; matches M9's home-server model. M6 replaces the by-hand pull with SSM RunCommand. |
-| Cloudflare token to SSM | Terraform-managed: AWS provider added to the cloudflare root, `aws_ssm_parameter` SecureString | Rotation is one apply; no manual step to forget; the secret already lives in that root's encrypted state, so no new exposure surface. Supersedes `token.tf`'s "moved to SSM in M5" comment; M5 builds the render-to-env-file tooling on top. |
+| Cloudflare token to SSM | Terraform-managed: AWS provider added to the cloudflare root, `aws_ssm_parameter` SecureString | No manual copy step to forget; the secret already lives in that root's encrypted state, so no new exposure surface. Rotation is an apply plus an on-box env-file re-render and Caddy recreate; the runbook is an M10 deliverable. Supersedes `token.tf`'s "moved to SSM in M5" comment; M5 builds the render-to-env-file tooling on top. |
 | IPv6 at the origin | Pin a static IPv6 on the instance; AAAA points at it | The IPv6 analogue of the EIP: survives host replacement (ADR 0017 cattle semantics), keeps the ROADMAP's A + AAAA deliverable honest, gives dual-stack edge-to-origin. |
 | Wildcard cert vs snippet contract | `auto_https prefer_wildcard` + plain host-block snippets | Keeps CONTEXT.md's "snippet = one host block" contract untouched and the single-cert deliverable. Current Caddy docs (2.10+) make wildcard reuse the default; the flag covers 2.8/2.9. Fallback recorded: single wildcard site with matcher + handle snippets. |
 | Caddyfile import glob | `import /etc/caddy/Caddyfile.d/*/*.caddy` | All services, all envs on this host. The ROADMAP's `*/<env>.caddy` wording was shorthand; a per-env glob would break M11 preview envs, which share this Caddy. |
@@ -56,6 +56,7 @@ Port 80 stays closed end to end: Cloudflare redirects HTTP at its edge, Caddy is
 | `ec2.tf` (edit) | `ipv6_addresses = [cidrhost(aws_subnet.public.ipv6_cidr_block, 16)]` pins the Host's IPv6. Replacement instances re-request the same address. |
 | `outputs.tf` (edit) | Adds `host_ipv6_address`, `caddy_ecr_repository_url`, `hello_ecr_repository_url`. |
 | `tests/` (edit) | New invariants: both ECR repos immutable with scan-on-push; the instance carries the pinned IPv6. |
+| `host/cloud-init.yaml` (edit) | Adds `git` to packages and `aws-cli` (snap) to runcmd: prerequisites of the repo-checkout deploy model, owned by Layer 2 so a replacement Host needs no undocumented installs. Applying this replaces the Host (ADR 0017, drill already exercised). |
 
 Tagging: the ECR repos are per-service resources, so they carry `Service=caddy` / `Service=hello` plus `Repo=wkx-platform`, and omit `Env` (images are per-commit; the env decides which tag deploys where). The IPv6 address is host-level like the EIP.
 
@@ -194,12 +195,16 @@ openssl s_client -connect hello.wingkongexchange.dev:443 </dev/null \
   | openssl x509 -noout -ext subjectAltName                                  # *.wingkongexchange.dev
 curl -sI http://hello.wingkongexchange.dev | head -1                         # 301 from the Cloudflare edge
 curl -s --max-time 5 https://<EIP> ; echo $?                                 # timeout: SG drops direct traffic
-curl -s -o /dev/null -w '%{http_code}' https://unrouted.wingkongexchange.dev # 404 from the wildcard block
+# on the box (unrouted subdomains have no DNS record, so this cannot be tested
+# through the edge; resolve straight to the local Caddy instead):
+curl -sk -o /dev/null -w '%{http_code}' \
+  --resolve unrouted.wingkongexchange.dev:443:127.0.0.1 \
+  https://unrouted.wingkongexchange.dev                                       # 404 from the wildcard block
 ```
 
 On the box: cert material exists under `/srv/data/caddy/prod/data`; both Compose projects are up; the token file is mode 600 and owned by `platform`.
 
-**Replacement resilience:** after M2's drill pattern, a replaced Host re-acquires the same EIP and IPv6, remounts `/srv/data`, and serving resumes after `compose up` without re-issuing certificates.
+**Replacement resilience:** after M2's drill pattern, a replaced Host re-acquires the same EIP and IPv6 and remounts `/srv/data`. The repo checkout, `/etc/caddy/Caddyfile.d/`, and `/srv/secrets/` live on the root volume and die with the instance, so the deploy procedure re-runs from step 4; certificates are not re-issued because Caddy's data dir is on the Data volume.
 
 ## 8. Cost
 
@@ -211,7 +216,8 @@ Effectively nil delta: ECR storage for two small images, well under a dollar a m
 - `infra/cloudflare/token.tf`: comment updated (SSM at M3, not M5).
 - `docs/setup/m3-infra-state.md` (public-safe template) plus gitignored `.local.md` sibling recording ECR URLs, pinned IPv6, deployed image tags.
 - `CLAUDE.md` repository-state paragraph: `platform/` and `hello/` now exist.
-- `CONTEXT.md` and ADR updates flow from the grill session that follows this review.
+- `CONTEXT.md`: new terms Platform stack, Edge network, Edge alias; Platform services entry notes the `<service>` namespace slot.
+- ADR 0018 (one wildcard certificate, plain host-block snippets) and ADR 0019 (shared Edge network with `<service>-<env>` aliases).
 
 ## 10. Out of scope
 

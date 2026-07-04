@@ -25,7 +25,11 @@ The `<service>-<env>` namespace that isolates one service-env's containers, netw
 Any container block in a `compose.yml`, in Docker's sense of the word, including sidecars such as a Postgres `db`. The platform Service is the main one (the container with the hostname); sidecars are additional Compose services in the same Compose project.
 
 **Platform services**:
-The always-on shared services: Caddy, the CloudWatch agent, and the backup runner. Layer 3 of the stack.
+The always-on shared services: Caddy, the CloudWatch agent, and the backup runner. Layer 3 of the stack. Each platform service occupies the `<service>` slot in config and data namespaces (`/wkx/caddy/<env>/...`, `/srv/data/caddy/<env>`) without being a Service: none has a hostname.
+
+**Platform stack**:
+The platform services' own Compose project, `platform-<env>`, holding every platform service on a Host. Deliberately borrows the `<service>-<env>` shape without naming a Service.
+_Avoid_: platform compose project
 
 **Host**:
 The single box that runs everything via Docker Compose: either the cloud Graviton EC2 instance or the home server.
@@ -80,3 +84,10 @@ Second-class routing: a service on a subdomain of the apps apex. (Mode 2, path-b
 
 **Caddy snippet**:
 The single Caddy host block a project contributes, aggregated by the platform at `/etc/caddy/Caddyfile.d/<service>/<env>.caddy`.
+
+**Edge network**:
+The shared Docker network `wkx-edge` on a Host, created and named by the Platform stack. Caddy and every deployed Service attach to it; requests cross from Layer 3 to Layer 4 over it.
+_Avoid_: proxy network, caddy network
+
+**Edge alias**:
+The network alias `<service>-<env>` a Service registers on the Edge network; the upstream address its Caddy snippet proxies to (for example `hello-prod`).
