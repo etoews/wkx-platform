@@ -191,9 +191,12 @@ Subsequent deploys are `git pull` plus the relevant `compose up` / `caddy reload
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}' https://hello.wingkongexchange.dev   # 200
-openssl s_client -connect hello.wingkongexchange.dev:443 </dev/null \
-  | openssl x509 -noout -ext subjectAltName                                  # *.wingkongexchange.dev
 curl -sI http://hello.wingkongexchange.dev | head -1                         # 301 from the Cloudflare edge
+
+# on the box (through the proxy you would see Cloudflare's edge certificate,
+# so Caddy's wildcard is checked at the origin):
+openssl s_client -connect 127.0.0.1:443 -servername hello.wingkongexchange.dev </dev/null 2>/dev/null \
+  | openssl x509 -noout -ext subjectAltName                                  # *.wingkongexchange.dev
 curl -s --max-time 5 https://<EIP> ; echo $?                                 # timeout: SG drops direct traffic
 # on the box (unrouted subdomains have no DNS record, so this cannot be tested
 # through the edge; resolve straight to the local Caddy instead):
