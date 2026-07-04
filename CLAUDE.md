@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository state
 
-This repo is in the **design + planning phase**. The substance today is `README.md`, `ROADMAP.md`, the design spec under `docs/superpowers/specs/`, and the milestone plans under `docs/superpowers/plans/`. No application code, Terraform, Docker, or scripts exist yet. They land milestone by milestone (M1 onward) per `ROADMAP.md`.
+This repo has left the pure design phase. Live today: `infra/` (three Terraform roots: `bootstrap/`, `aws/`, `cloudflare/`, all applied; M1 network and M2 Graviton host) and `host/cloud-init.yaml` (the cloud Host bootstrap). Still to come milestone by milestone per `ROADMAP.md`: the Compose stack under `platform/` (M3), Python tooling under `tools/` (M5 onward), and the reference project under `template/` (M8). The design spec, milestone plans, ADRs under `docs/adr/`, and the `CONTEXT.md` glossary remain the sources of truth.
 
-There is therefore no build, lint, or test toolchain to invoke. Until code arrives, the relevant operations are:
+Build, lint, and test tooling exists for the infrastructure code: `terraform test` runs invariant tests in `infra/aws/`, and `terraform fmt` and `terraform validate` apply to all roots (`bootstrap/`, `aws/`, `cloudflare/`). Beyond Terraform, relevant operations include:
 
 - Reading the design spec to answer "why" questions about decisions.
 - Reading or extending milestone plans (`docs/superpowers/plans/<date>-<m#>-<name>.md`) which use `- [ ]` checkbox syntax so an agent can execute them task by task.
-- Editing `docs/setup/m0-account-state.md` (public-safe template; the gitignored `*.local.md` sibling holds real account IDs and must never be committed).
+- Editing `docs/setup/<milestone>-infra-state.md` (public-safe template; the gitignored `*.local.md` sibling holds real values and must never be committed).
 
 When code does land, expect: Terraform under `infra/`, host bootstrap under `host/`, Compose stack under `platform/`, Python tooling (uv-packaged) under `tools/`, and the reference project under `template/`. Layout is described in §5 of the design spec.
 

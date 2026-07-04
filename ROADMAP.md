@@ -57,14 +57,14 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 ## M2 · Graviton host — Size: M
 
 **Deliverables**
-- EC2 t4g.medium in the public subnet, ARM64 Ubuntu 24.04 AMI.
+- EC2 t4g.medium in the public subnet, ARM64 Ubuntu 26.04 AMI resolved via Canonical's SSM public parameter (never a hardcoded AMI ID).
 - Elastic IP attached.
 - IAM instance profile granting:
   - SSM Session Manager + RunCommand
   - ECR pull
   - CloudWatch Logs/Metrics write
   - SSM Parameter Store read by `/wkx/*` path (broad scope; service-first paths make per-service IAM the natural granularity, deferred to the M2 plan)
-  - S3 write to the backups bucket
+  - S3 write to the backups bucket (grant deferred to M10 alongside the bucket itself; see the M2 design spec)
 - cloud-init user-data (`host/cloud-init.yaml`) installs:
   - Docker + Compose plugin
   - SSM agent (usually preinstalled), CloudWatch agent
