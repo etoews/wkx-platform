@@ -103,6 +103,7 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 - One log group per service, created by Terraform.
 - CloudWatch dashboard: CPU, memory, disk, network, request rate (from Caddy access logs).
 - Billing alarm at 80% of NZD $50 (≈ USD $24).
+- Verify the CloudWatch agent deb against its published GPG signature before install (M2 installs it unverified over HTTPS).
 
 **Hands-on artifact**
 - Tail Caddy and hello logs in the CloudWatch console.
@@ -117,6 +118,7 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 - Python helper (`tools/secrets/`, packaged with uv) that reads parameters by path and renders a `.env` file at deploy time.
 - Compose env-file path standardized at `/srv/secrets/<service>/<env>.env` (gitignored, regenerated on deploy).
 - Instance role permits read-by-path; deploy script (M6) re-renders before `compose up`.
+- Revisit IMDS hop limit 2 before secrets land in Parameter Store: containers can currently reach the instance role's credentials; drop to hop limit 1 or record the acceptance in an ADR.
 
 **Hands-on artifact**
 - Set `/wkx/hello/prod/MESSAGE = "hello world"`.

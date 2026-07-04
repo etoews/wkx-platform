@@ -10,9 +10,9 @@ Build, lint, and test tooling exists for the infrastructure code: `terraform tes
 
 - Reading the design spec to answer "why" questions about decisions.
 - Reading or extending milestone plans (`docs/superpowers/plans/<date>-<m#>-<name>.md`) which use `- [ ]` checkbox syntax so an agent can execute them task by task.
-- Editing `docs/setup/m0-account-state.md` (public-safe template; the gitignored `*.local.md` sibling holds real account IDs and must never be committed).
+- Editing the `docs/setup/` state docs (`m0-account-state.md` plus the per-milestone `m<N>-infra-state.md` files; all public-safe templates whose gitignored `*.local.md` siblings hold real account IDs and must never be committed).
 
-When code does land, expect: Terraform under `infra/`, host bootstrap under `host/`, Compose stack under `platform/`, Python tooling (uv-packaged) under `tools/`, and the reference project under `template/`. Layout is described in §5 of the design spec.
+Layout for the directories still to land (`platform/`, uv-packaged `tools/`, `template/`) is described in §5 of the design spec.
 
 ## Architecture in one paragraph
 

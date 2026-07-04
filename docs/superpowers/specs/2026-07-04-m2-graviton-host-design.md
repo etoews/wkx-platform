@@ -113,9 +113,9 @@ Nothing else. Caddy, the platform Compose stack, unattended-upgrades (M7), and r
 
 **Plan-time invariants** (`tests/host_invariants.tftest.hcl`, same style as M1's security test):
 
-- Instance has no `key_name` (no-SSH invariant, ADR 0003).
+- Instance has no `key_name` (no-SSH invariant, ADR 0003) (verified live after apply: the provider computes key_name, so a create plan reports it unknown).
 - `metadata_options.http_tokens == "required"`.
-- Instance security groups are exactly `web` + `host-egress`.
+- Instance security groups are exactly `web` + `host-egress` (verified live after apply: the SG set length is unknown at plan time).
 - Root and data volumes are encrypted gp3.
 - `user_data_replace_on_change == true` and the AMI comes from the SSM parameter data source.
 
