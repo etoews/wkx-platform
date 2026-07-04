@@ -3,6 +3,7 @@
 # the only template variable is data_volume_device. Changing this file
 # replaces the instance (ADR 0017): the Data volume, and therefore
 # /srv/data, survives.
+# Replacement drill exercised: 2026-07-04 (ADR 0017).
 
 package_update: true
 package_upgrade: true
@@ -69,6 +70,10 @@ runcmd:
   - [usermod, -aG, docker, platform]
   - [systemctl, enable, --now, docker]
   - [systemctl, enable, --now, snap.amazon-ssm-agent.amazon-ssm-agent.service]
+  # ADR 0003: nothing listens on 22. The Ubuntu AMI ships openssh enabled;
+  # disable and mask it so the daemon cannot start. Access is SSM only.
+  - [sh, -c, 'systemctl disable --now ssh.socket ssh.service 2>/dev/null || true']
+  - [systemctl, mask, ssh.socket, ssh.service]
   - curl -fsSL -o /tmp/amazon-cloudwatch-agent.deb https://amazoncloudwatch-agent-ap-southeast-2.s3.ap-southeast-2.amazonaws.com/ubuntu/arm64/latest/amazon-cloudwatch-agent.deb
   - dpkg -i /tmp/amazon-cloudwatch-agent.deb
   - rm -f /tmp/amazon-cloudwatch-agent.deb
