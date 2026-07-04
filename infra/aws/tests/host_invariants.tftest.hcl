@@ -13,6 +13,11 @@ run "host_is_imdsv2_and_cattle" {
   }
 
   assert {
+    condition     = aws_instance.host.ami == nonsensitive(data.aws_ssm_parameter.ubuntu_arm64.value)
+    error_message = "The AMI must come from the Canonical SSM parameter, never a hardcoded ID."
+  }
+
+  assert {
     condition     = aws_instance.host.credit_specification[0].cpu_credits == "standard"
     error_message = "CPU credits must be standard; unlimited can exceed the budget."
   }
