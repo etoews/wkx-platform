@@ -1,0 +1,74 @@
+#cloud-config
+# Layer 2 bootstrap for the cloud Host. Rendered by Terraform templatefile();
+# the only template variable is data_volume_device. Changing this file
+# replaces the instance (ADR 0017): the Data volume, and therefore
+# /srv/data, survives.
+
+package_update: true
+package_upgrade: true
+
+apt:
+  sources:
+    docker.list:
+      source: deb [arch=arm64 signed-by=$KEY_FILE] https://download.docker.com/linux/ubuntu $RELEASE stable
+      keyid: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
+
+packages:
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - docker-buildx-plugin
+  - docker-compose-plugin
+
+users:
+  - default
+  - name: platform
+    gecos: WKX platform user
+    shell: /bin/bash
+    lock_passwd: true
+    # docker group membership is added in runcmd; the group only exists
+    # once the docker-ce package has installed.
+
+write_files:
+  - path: /usr/local/bin/wkx-mount-data
+    permissions: '0755'
+    content: |
+      #!/usr/bin/env bash
+      # Idempotent format-if-blank + mount of the Data volume at /srv/data.
+      # Safe to re-run; every step is a no-op when its work is already done.
+      set -euo pipefail
+      DEVICE='${data_volume_device}'
+
+      # Terraform attaches the volume only after the instance reports
+      # running, so poll rather than assume presence (up to 3 minutes).
+      for i in $(seq 1 36); do
+        if [ -e "$DEVICE" ]; then break; fi
+        sleep 5
+      done
+      if [ ! -e "$DEVICE" ]; then
+        echo "wkx-mount-data: $DEVICE never appeared" >&2
+        exit 1
+      fi
+
+      # Format only when the device carries no filesystem (first boot ever).
+      if ! blkid "$DEVICE" >/dev/null 2>&1; then
+        mkfs.ext4 -L wkx-data "$DEVICE"
+      fi
+
+      mkdir -p /srv/data
+      if ! grep -q '^LABEL=wkx-data ' /etc/fstab; then
+        echo 'LABEL=wkx-data /srv/data ext4 defaults,nofail 0 2' >> /etc/fstab
+      fi
+      if ! mountpoint -q /srv/data; then
+        mount /srv/data
+      fi
+      chown platform:platform /srv/data
+
+runcmd:
+  - [/usr/local/bin/wkx-mount-data]
+  - [usermod, -aG, docker, platform]
+  - [systemctl, enable, --now, docker]
+  - [systemctl, enable, --now, snap.amazon-ssm-agent.amazon-ssm-agent.service]
+  - curl -fsSL -o /tmp/amazon-cloudwatch-agent.deb https://amazoncloudwatch-agent-ap-southeast-2.s3.ap-southeast-2.amazonaws.com/ubuntu/arm64/latest/amazon-cloudwatch-agent.deb
+  - dpkg -i /tmp/amazon-cloudwatch-agent.deb
+  - rm -f /tmp/amazon-cloudwatch-agent.deb
