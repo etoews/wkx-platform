@@ -81,11 +81,12 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 
 **Deliverables**
 - `platform/compose.yml` deployed to the box. Caddy image is custom-built via `xcaddy` with the `caddy-dns/cloudflare` plugin (small Dockerfile in `platform/caddy/`, image pushed to ECR).
-- Caddy obtains wildcard cert for `*.wingkongexchange.dev` via DNS-01 using the Cloudflare API token (stored in SSM, fetched at deploy).
-- Caddy config: top-level `Caddyfile` does `import /etc/caddy/Caddyfile.d/*.caddy`.
+- Caddy obtains wildcard cert for `*.wingkongexchange.dev` via DNS-01 using the Cloudflare API token (stored in SSM at M3 by Terraform; M5 generalises the render tooling).
+- Caddy config: top-level `Caddyfile` does `import /etc/caddy/Caddyfile.d/*.caddy` (snippets are flat `<service>-<env>.caddy` files; Caddy import globs allow one wildcard).
 - "hello" smoke-test app deployed as a Compose service (initially in the platform repo; extracted to its own repo at M6).
-- Cloudflare DNS A + AAAA records for `hello.wingkongexchange.dev` pointing at the EIP, proxy mode ON.
-- Origin SG hardened to Cloudflare IP ranges only.
+- Cloudflare DNS A + AAAA records for `hello.wingkongexchange.dev` pointing at the EIP, proxy mode ON (AAAA targets the pinned static IPv6; the EIP is IPv4-only).
+- Origin SG hardened to Cloudflare IP ranges only (delivered in M1; verified live in M3).
+- cloud-init gains git + aws-cli (deploy-model prerequisites); applying replaced the Host (ADR 0017).
 
 **Hands-on artifact**
 - `https://hello.wingkongexchange.dev` returns 200 with valid TLS in a browser.
