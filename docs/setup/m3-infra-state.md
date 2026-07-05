@@ -3,7 +3,7 @@
 > Public-safe template. Real values live in the gitignored `m3-infra-state.local.md`.
 
 ## Images
-- ECR: `<PLATFORM_ACCOUNT_ID>.dkr.ecr.ap-southeast-2.amazonaws.com/wkx/caddy:<sha>` (Caddy `<caddy version>`)
+- ECR: `<PLATFORM_ACCOUNT_ID>.dkr.ecr.ap-southeast-2.amazonaws.com/wkx/caddy:<sha>` (Caddy `v2.11.4`)
 - ECR: `<PLATFORM_ACCOUNT_ID>.dkr.ecr.ap-southeast-2.amazonaws.com/wkx/hello:<sha>`
 
 ## Network

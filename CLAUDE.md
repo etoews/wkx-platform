@@ -12,7 +12,7 @@ Build, lint, and test tooling exists for the infrastructure code: `terraform tes
 - Reading or extending milestone plans (`docs/superpowers/plans/<date>-<m#>-<name>.md`) which use `- [ ]` checkbox syntax so an agent can execute them task by task.
 - Editing the `docs/setup/` state docs (`m0-account-state.md` plus the per-milestone `m<N>-infra-state.md` files; all public-safe templates whose gitignored `*.local.md` siblings hold real account IDs and must never be committed).
 
-Layout for the directories still to land (`platform/`, uv-packaged `tools/`, `template/`) is described in §5 of the design spec.
+Layout for the directories still to land (uv-packaged `tools/`, `template/`) is described in §5 of the design spec.
 
 ## Architecture in one paragraph
 
