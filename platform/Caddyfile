@@ -1,0 +1,12 @@
+# Platform Caddyfile. One DNS-01 wildcard certificate for the apps apex;
+# project snippets are plain host blocks that ride it (ADR 0018).
+
+*.wingkongexchange.dev {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
+	# Subdomains with no snippet fall through to here.
+	respond 404
+}
+
+import /etc/caddy/Caddyfile.d/*.caddy

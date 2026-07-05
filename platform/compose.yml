@@ -1,0 +1,26 @@
+# The Platform stack (CONTEXT.md): platform services on one Host.
+# Run as: docker compose -p platform-prod up -d
+# ECR_REGISTRY and CADDY_TAG come from a gitignored .env beside this file,
+# written at deploy time; ${VAR:?} makes missing values a hard error.
+services:
+  caddy:
+    image: ${ECR_REGISTRY:?}/wkx/caddy:${CADDY_TAG:?}
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.5
+    ports:
+      - "443:443"
+    env_file:
+      - /srv/secrets/caddy/prod.env # CLOUDFLARE_API_TOKEN, rendered from SSM
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - /etc/caddy/Caddyfile.d:/etc/caddy/Caddyfile.d:ro
+      - /srv/data/caddy/prod/data:/data # certificates persist here
+      - /srv/data/caddy/prod/config:/config
+    networks: [wkx-edge]
+
+# The Edge network (ADR 0019): created and named here, joined by every
+# deployed Service as an external network.
+networks:
+  wkx-edge:
+    name: wkx-edge
