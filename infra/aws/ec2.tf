@@ -26,7 +26,10 @@ resource "aws_instance" "host" {
   ami           = nonsensitive(data.aws_ssm_parameter.ubuntu_arm64.value)
   instance_type = "t4g.medium"
 
-  subnet_id              = aws_subnet.public.id
+  subnet_id = aws_subnet.public.id
+  # The IPv6 analogue of the EIP: a fixed address from the subnet's /64, so
+  # replacement instances keep it and M3's AAAA record stays valid (ADR 0017).
+  ipv6_addresses         = [cidrhost(aws_subnet.public.ipv6_cidr_block, 16)]
   vpc_security_group_ids = [aws_security_group.web.id, aws_security_group.host_egress.id]
   iam_instance_profile   = aws_iam_instance_profile.host.name
 

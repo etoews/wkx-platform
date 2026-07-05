@@ -4,6 +4,7 @@
 # replaces the instance (ADR 0017): the Data volume, and therefore
 # /srv/data, survives.
 # Replacement drill exercised: 2026-07-04 (ADR 0017).
+# M3 added: git package and aws-cli snap (deploy-model prerequisites).
 
 package_update: true
 package_upgrade: true
@@ -20,6 +21,7 @@ packages:
   - containerd.io
   - docker-buildx-plugin
   - docker-compose-plugin
+  - git
 
 users:
   - default
@@ -77,3 +79,6 @@ runcmd:
   - curl -fsSL -o /tmp/amazon-cloudwatch-agent.deb https://amazoncloudwatch-agent-ap-southeast-2.s3.ap-southeast-2.amazonaws.com/ubuntu/arm64/latest/amazon-cloudwatch-agent.deb
   - dpkg -i /tmp/amazon-cloudwatch-agent.deb
   - rm -f /tmp/amazon-cloudwatch-agent.deb
+  # Deploy-model prerequisites (M3): the repo checkout needs git (above) and
+  # rendering secrets from SSM plus ECR login need the AWS CLI.
+  - [snap, install, aws-cli, --classic]

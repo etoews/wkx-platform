@@ -57,3 +57,8 @@ output "hello_ecr_repository_url" {
   description = "ECR repository URL for the hello image."
   value       = aws_ecr_repository.hello.repository_url
 }
+
+output "host_ipv6_address" {
+  description = "Pinned IPv6 address of the Host (M3 AAAA record targets this)."
+  value       = one(aws_instance.host.ipv6_addresses)
+}
