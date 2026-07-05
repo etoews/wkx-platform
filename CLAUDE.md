@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository state
 
-This repo has left the pure design phase. Live today: `infra/` (three Terraform roots: `bootstrap/`, `aws/`, `cloudflare/`, all applied; M1 network and M2 Graviton host) and `host/cloud-init.yaml` (the cloud Host bootstrap). Still to come milestone by milestone per `ROADMAP.md`: the Compose stack under `platform/` (M3), Python tooling under `tools/` (M5 onward), and the reference project under `template/` (M8). The design spec, milestone plans, ADRs under `docs/adr/`, and the `CONTEXT.md` glossary remain the sources of truth.
+This repo has left the pure design phase. Live today: `infra/` (four Terraform roots: `bootstrap/`, `aws/`, `cloudflare/`, `mgmt/`, all applied; M1 network, M2 Graviton host, and the management-account budgets) and `host/cloud-init.yaml` (the cloud Host bootstrap). Still to come milestone by milestone per `ROADMAP.md`: the Compose stack under `platform/` (M3), Python tooling under `tools/` (M5 onward), and the reference project under `template/` (M8). The design spec, milestone plans, ADRs under `docs/adr/`, and the `CONTEXT.md` glossary remain the sources of truth.
 
-Build, lint, and test tooling exists for the infrastructure code: `terraform test` runs invariant tests in `infra/aws/`, and `terraform fmt` and `terraform validate` apply to all roots (`bootstrap/`, `aws/`, `cloudflare/`). Beyond Terraform, relevant operations include:
+Build, lint, and test tooling exists for the infrastructure code: `terraform test` runs invariant tests in `infra/aws/` and `infra/mgmt/`, and `terraform fmt` and `terraform validate` apply to all roots (`bootstrap/`, `aws/`, `cloudflare/`, `mgmt/`). Beyond Terraform, relevant operations include:
 
 - Reading the design spec to answer "why" questions about decisions.
 - Reading or extending milestone plans (`docs/superpowers/plans/<date>-<m#>-<name>.md`) which use `- [ ]` checkbox syntax so an agent can execute them task by task.

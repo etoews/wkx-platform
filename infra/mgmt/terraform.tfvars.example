@@ -1,0 +1,3 @@
+# Copy to terraform.local.tfvars (gitignored); fill from m0-account-state.local.md.
+mgmt_account_id = "REPLACE_WITH_MGMT_ACCOUNT_ID"
+alert_email     = "REPLACE_WITH_ALERT_EMAIL"

@@ -1,0 +1,6 @@
+# Copy to backend.local.hcl (gitignored); fill from m0-account-state.local.md.
+# The bucket is the shared state bucket in the *platform* account, so the
+# backend authenticates as wkx-platform while the provider runs as wkx-mgmt
+# against the management account.
+bucket  = "wkx-tfstate-REPLACE_WITH_PLATFORM_ACCOUNT_ID"
+profile = "wkx-platform"

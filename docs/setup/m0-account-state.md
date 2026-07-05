@@ -20,7 +20,8 @@
 - IdC region: `ap-southeast-2`
 - SSO start URL: `https://<your-idc-subdomain>.awsapps.com/start`
 - IdC username: `<your-idc-username>`
-- Permission set name: `AdministratorAccess` (AWS-managed predefined set)
+- Permission set name: `AdministratorAccess` (AWS-managed predefined set; assigned on the platform account)
+- Permission set name: `wkx-budgets` (custom, budgets-only; assigned on the management account so `infra/mgmt/` can manage budgets without AdministratorAccess there)
 
 ## Cloudflare
 
