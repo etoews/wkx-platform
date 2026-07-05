@@ -1,5 +1,5 @@
-# Narrow zone-scoped token for Caddy's DNS-01 challenge (M3). Stored in state
-# (encrypted bucket); moved to SSM in M5.
+# Narrow zone-scoped token for Caddy's DNS-01 challenge (M3). Delivered to
+# the Host via SSM Parameter Store (ssm.tf); fetched at deploy time.
 #
 # Account-owned token (not a user token): the bootstrap credential is scoped to
 # Account -> API Tokens -> Edit, so it can mint account tokens but not user
