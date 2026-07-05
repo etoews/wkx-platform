@@ -21,7 +21,7 @@ flowchart LR
         Proxy["Proxy on · WAF<br/>Always Use HTTPS<br/>Full (strict) SSL"]
     end
     subgraph Host["Host (M2, live)"]
-        Caddy["Caddy · platform-prod<br/>wildcard cert *.wingkongexchange.dev<br/>imports Caddyfile.d/*/*.caddy"]
+        Caddy["Caddy · platform-prod<br/>wildcard cert *.wingkongexchange.dev<br/>imports Caddyfile.d/*.caddy"]
         Hello["hello · hello-prod<br/>alias hello-prod : 8000"]
     end
 
@@ -41,7 +41,7 @@ Port 80 stays closed end to end: Cloudflare redirects HTTP at its edge, Caddy is
 | Cloudflare token to SSM | Terraform-managed: AWS provider added to the cloudflare root, `aws_ssm_parameter` SecureString | No manual copy step to forget; the secret already lives in that root's encrypted state, so no new exposure surface. Rotation is an apply plus an on-box env-file re-render and Caddy recreate; the runbook is an M10 deliverable. Supersedes `token.tf`'s "moved to SSM in M5" comment; M5 builds the render-to-env-file tooling on top. |
 | IPv6 at the origin | Pin a static IPv6 on the instance; AAAA points at it | The IPv6 analogue of the EIP: survives host replacement (ADR 0017 cattle semantics), keeps the ROADMAP's A + AAAA deliverable honest, gives dual-stack edge-to-origin. |
 | Wildcard cert vs snippet contract | Default wildcard reuse + plain host-block snippets | Keeps CONTEXT.md's "snippet = one host block" contract untouched and the single-cert deliverable. Wildcard reuse is the default from Caddy 2.10; the `auto_https prefer_wildcard` flag was removed with 2.11 (Task 1 gate, ADR 0018), so the Caddyfile carries no flag. Fallback recorded: single wildcard site with matcher + handle snippets. |
-| Caddyfile import glob | `import /etc/caddy/Caddyfile.d/*/*.caddy` | All services, all envs on this host. The ROADMAP's `*/<env>.caddy` wording was shorthand; a per-env glob would break M11 preview envs, which share this Caddy. |
+| Caddyfile import glob | `import /etc/caddy/Caddyfile.d/*.caddy`, flat `<service>-<env>.caddy` files | All services, all envs on this host. Caddy import globs allow only one wildcard (Task 5 gate, v2.11.4), so the designed `<service>/<env>.caddy` directories flattened to `<service>-<env>.caddy`, matching the Compose project and Edge alias grammar. A per-env glob would break M11 preview envs, which share this Caddy. |
 | ECR repo naming | `wkx/<service>` (`wkx/caddy`, `wkx/hello`) | Matches the path-style `/wkx/<service>/...` namespacing of SSM parameters and log groups, rather than the flat `wkx-` prefix used by infrastructure resource names. |
 | Shared app network | Platform stack owns `wkx-edge` (fixed name); apps join as external with alias `<service>-<env>` | Single owner for the network; the alias is the upstream address Caddy snippets `reverse_proxy` to; Compose projects follow the same `<service>-<env>` shape (`platform-prod`, `hello-prod`). |
 | EIP / IPv6 into the cloudflare root | New variables via the existing gitignored `*.local.tfvars` pattern | Consistent with how `cloudflare_account_id` is supplied; keeps real addresses out of committed files (Invariant 7); no cross-root remote-state coupling. |
@@ -104,7 +104,7 @@ Built for `linux/arm64` on the Mac (Apple silicon builds it natively) and pushed
 	respond 404
 }
 
-import /etc/caddy/Caddyfile.d/*/*.caddy
+import /etc/caddy/Caddyfile.d/*.caddy
 ```
 
 One DNS-01 wildcard certificate for `*.wingkongexchange.dev`; project snippets stay plain host blocks and ride it. Wildcard reuse for covered subdomains is Caddy's default behaviour from 2.10, so no `auto_https` global option is needed; the plan's first implementation task confirmed this against the shipped image (v2.11.4 rejects the removed `prefer_wildcard` flag; see ADR 0018). The single-wildcard-site pattern (matcher plus handle snippets) stays the recorded fallback. Unmatched subdomains get a 404 from the wildcard block.
@@ -154,7 +154,7 @@ hello/
 
 `app.py` answers 200 with a `MESSAGE` environment variable defaulting to a hello page. That makes M5's hands-on artefact (set `/wkx/hello/prod/MESSAGE`, redeploy, see the new value) a config change rather than a code change.
 
-The deployed snippet at `/etc/caddy/Caddyfile.d/hello/prod.caddy`:
+The deployed snippet at `/etc/caddy/Caddyfile.d/hello-prod.caddy`:
 
 ```caddyfile
 hello.wingkongexchange.dev {

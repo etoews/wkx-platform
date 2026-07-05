@@ -42,7 +42,7 @@ When generating resources, follow §6 of the design spec exactly:
 |-----------------------|--------------------------------------------------|
 | Hostname (Mode 3)     | prod: `<service>.wingkongexchange.dev` · else: `<service>-<env>.wingkongexchange.dev` |
 | Compose project       | `<service>-<env>` (via `docker compose -p`)      |
-| Caddy snippet         | `/etc/caddy/Caddyfile.d/<service>/<env>.caddy`   |
+| Caddy snippet         | `/etc/caddy/Caddyfile.d/<service>-<env>.caddy`   |
 | SSM Parameter         | `/wkx/<service>/<env>/<KEY>`                     |
 | CloudWatch log group  | `/wkx/<service>/<env>`                           |
 | Data dir              | `/srv/data/<service>/<env>`                      |

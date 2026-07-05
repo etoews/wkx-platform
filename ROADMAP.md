@@ -82,7 +82,7 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 **Deliverables**
 - `platform/compose.yml` deployed to the box. Caddy image is custom-built via `xcaddy` with the `caddy-dns/cloudflare` plugin (small Dockerfile in `platform/caddy/`, image pushed to ECR).
 - Caddy obtains wildcard cert for `*.wingkongexchange.dev` via DNS-01 using the Cloudflare API token (stored in SSM, fetched at deploy).
-- Caddy config: top-level `Caddyfile` does `import /etc/caddy/Caddyfile.d/*/<env>.caddy`.
+- Caddy config: top-level `Caddyfile` does `import /etc/caddy/Caddyfile.d/*.caddy`.
 - "hello" smoke-test app deployed as a Compose service (initially in the platform repo; extracted to its own repo at M6).
 - Cloudflare DNS A + AAAA records for `hello.wingkongexchange.dev` pointing at the EIP, proxy mode ON.
 - Origin SG hardened to Cloudflare IP ranges only.
@@ -139,7 +139,7 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
   - Trigger deploy via `aws ssm send-command` invoking a script that:
     - Renders env-file from SSM (using the M5 helper).
     - Pulls image, runs `docker compose -p <service>-<env> up -d`.
-    - Drops the project's caddy snippet at `/etc/caddy/Caddyfile.d/<service>/<env>.caddy`.
+    - Drops the project's caddy snippet at `/etc/caddy/Caddyfile.d/<service>-<env>.caddy`.
     - Reloads Caddy.
 - Extract "hello" to its own repo `wkx-hello` and wire it through the new pipeline.
 - Deploy script (`tools/deploy/`) **requires** `--env` — no default. Forgetting it errors out with valid env patterns. CI workflows hardcode their target env (PR-open: `pr-<N>`; main-merge: `prod`).

@@ -83,7 +83,7 @@ _Avoid_: custom domain
 Second-class routing: a service on a subdomain of the apps apex. (Mode 2, path-based routing, was considered and rejected; it is not used.)
 
 **Caddy snippet**:
-The single Caddy host block a project contributes, aggregated by the platform at `/etc/caddy/Caddyfile.d/<service>/<env>.caddy`.
+The single Caddy host block a project contributes, aggregated by the platform at `/etc/caddy/Caddyfile.d/<service>-<env>.caddy` (flat directory; Caddy import globs allow a single wildcard, decided at M3).
 
 **Edge network**:
 The shared Docker network `wkx-edge` on a Host, created and named by the Platform stack. Caddy and every deployed Service attach to it; requests cross from Layer 3 to Layer 4 over it.

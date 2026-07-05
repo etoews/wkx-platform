@@ -113,7 +113,7 @@ Four layers, each with one job and a clean interface to the next. Same shape on 
 1. Project repo's GHA workflow uses GitHub OIDC to assume an AWS role scoped to its own ECR repo + SSM RunCommand.
 2. Workflow builds a multi-stage container (default ARM64; opt-in amd64 for projects that also run on the home server) and pushes to ECR.
 3. Workflow invokes `aws ssm send-command` with a script that pulls the image, renders the env-file from SSM Parameter Store, and runs `docker compose -p <service>-<env> up -d`.
-4. The host's Caddy reload picks up the snippet at `/etc/caddy/Caddyfile.d/<service>/<env>.caddy`.
+4. The host's Caddy reload picks up the snippet at `/etc/caddy/Caddyfile.d/<service>-<env>.caddy`.
 
 Adding a project = `wkx-scaffold` script clones `wkx-platform/template/` into a new repo, runs name/port/hostname substitutions, initializes git, creates the GitHub repo, and opens a PR against `wkx-platform` adding `infra/projects/<name>.tf` (creating ECR repo, log group, DNS record).
 
@@ -134,7 +134,7 @@ wkx-platform/
 │   └── shared/               common: install-docker.sh, dirs.sh
 ├── platform/                 Layer 3
 │   ├── compose.yml           Caddy, cw-agent, backup runner
-│   ├── Caddyfile             imports Caddyfile.d/*/<env>.caddy
+│   ├── Caddyfile             imports Caddyfile.d/*.caddy
 │   └── env/                  prod.env, home.env
 ├── template/                 reference project (real working app, CI-tested)
 ├── tools/                    dev tooling
@@ -177,7 +177,7 @@ Every namespace in the platform includes an `<env>` slot from day 1, ordered **s
 | Hostname | prod: `<service>.wingkongexchange.dev` · non-prod: `<service>-<env>.wingkongexchange.dev` (flat — covered by single `*.wingkongexchange.dev` wildcard cert) |
 | First-class hostname | `<service>-<env>.<APP_DOMAIN>` (or `www.<APP_DOMAIN>` for `prod`) |
 | Compose project | `<service>-<env>` (via `docker compose -p` → isolated networks/volumes) |
-| Caddy snippet | `/etc/caddy/Caddyfile.d/<service>/<env>.caddy` (one dir per service keeps a service's snippets together) |
+| Caddy snippet | `/etc/caddy/Caddyfile.d/<service>-<env>.caddy` (flat dir; Caddy import globs allow a single wildcard, decided at M3) |
 | SSM Parameter | `/wkx/<service>/<env>/<KEY>` |
 | CloudWatch log group | `/wkx/<service>/<env>` |
 | Data dir | `/srv/data/<service>/<env>` |
