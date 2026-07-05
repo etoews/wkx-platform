@@ -1,0 +1,9 @@
+# hello's Caddy snippet: one host block (ADR 0018). Rendered at deploy time
+# to /etc/caddy/Caddyfile.d/hello-<env>.caddy with:
+#   <hostname> = hello.wingkongexchange.dev        (prod hides the env)
+#              = hello-<env>.wingkongexchange.dev  (every other env)
+#   <env>      = the target env
+# M6's deploy script takes this render over.
+<hostname> {
+	reverse_proxy hello-<env>:8000
+}

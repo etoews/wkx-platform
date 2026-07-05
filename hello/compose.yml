@@ -1,0 +1,16 @@
+# hello: one Service, joining the Edge network with the <service>-<env>
+# alias Caddy proxies to (ADR 0019).
+# Run as: ENV=prod docker compose -p hello-prod up -d  (env always explicit)
+services:
+  web:
+    image: ${ECR_REGISTRY:?}/wkx/hello:${HELLO_TAG:?}
+    restart: unless-stopped
+    mem_limit: 128m
+    cpus: 0.25
+    networks:
+      wkx-edge:
+        aliases: ["hello-${ENV:?}"]
+
+networks:
+  wkx-edge:
+    external: true
