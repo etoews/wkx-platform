@@ -40,7 +40,7 @@ Port 80 stays closed end to end: Cloudflare redirects HTTP at its edge, Caddy is
 | Getting files onto the Host | Git clone of `wkx-platform` on the box | Repo is public, so no auth; deploys are `git pull` + `compose up` in an SSM session; matches M9's home-server model. M6 replaces the by-hand pull with SSM RunCommand. |
 | Cloudflare token to SSM | Terraform-managed: AWS provider added to the cloudflare root, `aws_ssm_parameter` SecureString | No manual copy step to forget; the secret already lives in that root's encrypted state, so no new exposure surface. Rotation is an apply plus an on-box env-file re-render and Caddy recreate; the runbook is an M10 deliverable. Supersedes `token.tf`'s "moved to SSM in M5" comment; M5 builds the render-to-env-file tooling on top. |
 | IPv6 at the origin | Pin a static IPv6 on the instance; AAAA points at it | The IPv6 analogue of the EIP: survives host replacement (ADR 0017 cattle semantics), keeps the ROADMAP's A + AAAA deliverable honest, gives dual-stack edge-to-origin. |
-| Wildcard cert vs snippet contract | `auto_https prefer_wildcard` + plain host-block snippets | Keeps CONTEXT.md's "snippet = one host block" contract untouched and the single-cert deliverable. Current Caddy docs (2.10+) make wildcard reuse the default; the flag covers 2.8/2.9. Fallback recorded: single wildcard site with matcher + handle snippets. |
+| Wildcard cert vs snippet contract | Default wildcard reuse + plain host-block snippets | Keeps CONTEXT.md's "snippet = one host block" contract untouched and the single-cert deliverable. Wildcard reuse is the default from Caddy 2.10; the `auto_https prefer_wildcard` flag was removed with 2.11 (Task 1 gate, ADR 0018), so the Caddyfile carries no flag. Fallback recorded: single wildcard site with matcher + handle snippets. |
 | Caddyfile import glob | `import /etc/caddy/Caddyfile.d/*/*.caddy` | All services, all envs on this host. The ROADMAP's `*/<env>.caddy` wording was shorthand; a per-env glob would break M11 preview envs, which share this Caddy. |
 | ECR repo naming | `wkx/<service>` (`wkx/caddy`, `wkx/hello`) | Matches the path-style `/wkx/<service>/...` namespacing of SSM parameters and log groups, rather than the flat `wkx-` prefix used by infrastructure resource names. |
 | Shared app network | Platform stack owns `wkx-edge` (fixed name); apps join as external with alias `<service>-<env>` | Single owner for the network; the alias is the upstream address Caddy snippets `reverse_proxy` to; Compose projects follow the same `<service>-<env>` shape (`platform-prod`, `hello-prod`). |
@@ -97,10 +97,6 @@ Built for `linux/arm64` on the Mac (Apple silicon builds it natively) and pushed
 ### 4.2 Caddyfile
 
 ```caddyfile
-{
-	auto_https prefer_wildcard
-}
-
 *.wingkongexchange.dev {
 	tls {
 		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
@@ -111,7 +107,7 @@ Built for `linux/arm64` on the Mac (Apple silicon builds it natively) and pushed
 import /etc/caddy/Caddyfile.d/*/*.caddy
 ```
 
-One DNS-01 wildcard certificate for `*.wingkongexchange.dev`; project snippets stay plain host blocks and ride it. The plan's first implementation task verifies `prefer_wildcard` against the exact Caddy version the image builds, with the single-wildcard-site pattern (matcher plus handle snippets) as the recorded fallback. Unmatched subdomains get a 404 from the wildcard block.
+One DNS-01 wildcard certificate for `*.wingkongexchange.dev`; project snippets stay plain host blocks and ride it. Wildcard reuse for covered subdomains is Caddy's default behaviour from 2.10, so no `auto_https` global option is needed; the plan's first implementation task confirmed this against the shipped image (v2.11.4 rejects the removed `prefer_wildcard` flag; see ADR 0018). The single-wildcard-site pattern (matcher plus handle snippets) stays the recorded fallback. Unmatched subdomains get a 404 from the wildcard block.
 
 No ACME account email is configured: it is optional, and Let's Encrypt no longer sends expiry notifications, so the knob earns nothing.
 
