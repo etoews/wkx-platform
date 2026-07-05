@@ -103,6 +103,7 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 - One log group per service, created by Terraform.
 - CloudWatch dashboard: CPU, memory, disk, network, request rate (from Caddy access logs).
 - Billing alarm at 80% of NZD $50 (≈ USD $24).
+  - Note (2026-07-05): partly covered already. `infra/mgmt/` manages a `wkx-org-monthly` budget in the management (payer) account alerting at 80% actual / 100% forecasted of USD $45 (burn-in level). If M4 still wants the CloudWatch alarm, billing metrics live in the payer account (us-east-1 only), and the budgets-only `wkx-budgets` IdC permission set behind `infra/mgmt/` will need CloudWatch + SNS actions added; that permission set edit is a one-time console change.
 - Verify the CloudWatch agent deb against its published GPG signature before install (M2 installs it unverified over HTTPS).
 
 **Hands-on artifact**
