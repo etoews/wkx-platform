@@ -215,3 +215,6 @@ __marimo__/
 # On-box compose interpolation values (contain the AWS account ID)
 platform/.env
 hello/.env
+# platform/env holds committed non-secret env files; un-shadow it from the
+# Python-template env/ rule above
+!platform/env/
