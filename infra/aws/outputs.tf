@@ -47,3 +47,13 @@ output "instance_profile_name" {
   description = "IAM instance profile attached to the Host."
   value       = aws_iam_instance_profile.host.name
 }
+
+output "caddy_ecr_repository_url" {
+  description = "ECR repository URL for the platform Caddy image."
+  value       = aws_ecr_repository.caddy.repository_url
+}
+
+output "hello_ecr_repository_url" {
+  description = "ECR repository URL for the hello image."
+  value       = aws_ecr_repository.hello.repository_url
+}
