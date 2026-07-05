@@ -1,0 +1,418 @@
+<title>M3: Caddy + TLS design</title>
+<style>
+  :root {
+    --ground: #f6faf7;
+    --surface: #ffffff;
+    --ink: #182420;
+    --ink-soft: #4a5b54;
+    --accent: #0e7a62;
+    --accent-ink: #0a5c4a;
+    --copper: #a85a17;
+    --line: #d8e4dd;
+    --code-bg: #eef4f0;
+    --chip-bg: #e2efe9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0f1714;
+      --surface: #151f1b;
+      --ink: #e2ece6;
+      --ink-soft: #9db0a7;
+      --accent: #3cc4a0;
+      --accent-ink: #5fd4b5;
+      --copper: #e0913f;
+      --line: #263630;
+      --code-bg: #1a2621;
+      --chip-bg: #1e2f28;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0f1714;
+    --surface: #151f1b;
+    --ink: #e2ece6;
+    --ink-soft: #9db0a7;
+    --accent: #3cc4a0;
+    --accent-ink: #5fd4b5;
+    --copper: #e0913f;
+    --line: #263630;
+    --code-bg: #1a2621;
+    --chip-bg: #1e2f28;
+  }
+  :root[data-theme="light"] {
+    --ground: #f6faf7;
+    --surface: #ffffff;
+    --ink: #182420;
+    --ink-soft: #4a5b54;
+    --accent: #0e7a62;
+    --accent-ink: #0a5c4a;
+    --copper: #a85a17;
+    --line: #d8e4dd;
+    --code-bg: #eef4f0;
+    --chip-bg: #e2efe9;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+    margin: 0;
+    padding: 0 24px 96px;
+  }
+  main { max-width: 880px; margin: 0 auto; }
+
+  h1, h2 {
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    line-height: 1.2;
+    text-wrap: balance;
+  }
+  h1 { font-size: 2.1rem; margin: 56px 0 8px; }
+  h2 { font-size: 1.45rem; margin: 0; }
+  h3 { font-size: 1.02rem; margin: 28px 0 8px; }
+
+  .kicker {
+    font-size: 0.78rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    margin-top: 48px;
+  }
+  .meta { color: var(--ink-soft); margin: 0 0 8px; }
+  .lede { font-size: 1.06rem; max-width: 68ch; }
+
+  section {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 28px 32px 32px;
+    margin: 28px 0;
+  }
+  .sec-head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 14px;
+    margin-bottom: 18px;
+  }
+  .sec-num {
+    font: 600 0.85rem/1 ui-monospace, "SF Mono", Menlo, monospace;
+    color: var(--accent-ink);
+    background: var(--chip-bg);
+    border-radius: 4px;
+    padding: 5px 8px;
+    flex: none;
+  }
+  p, li { max-width: 72ch; }
+  a { color: var(--accent-ink); }
+
+  code {
+    font: 0.86em ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    background: var(--code-bg);
+    border-radius: 3px;
+    padding: 0.1em 0.35em;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; font-size: 0.84rem; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.92rem;
+  }
+  .table-wrap { overflow-x: auto; }
+  th, td {
+    text-align: left;
+    padding: 9px 14px 9px 0;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  th {
+    font-size: 0.76rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 600;
+  }
+  td:first-child { white-space: nowrap; }
+  td code { white-space: nowrap; }
+
+  .decision {
+    border-left: 3px solid var(--copper);
+    background: var(--code-bg);
+    border-radius: 0 6px 6px 0;
+    padding: 12px 18px;
+    margin: 18px 0;
+    max-width: none;
+  }
+  .decision strong { color: var(--copper); }
+
+  /* request-path diagram */
+  .flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 10px;
+    margin: 20px 0 6px;
+  }
+  .node {
+    flex: 1 1 150px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 12px 14px;
+    background: var(--ground);
+    min-width: 148px;
+  }
+  .node b { display: block; font-size: 0.92rem; }
+  .node span { font-size: 0.8rem; color: var(--ink-soft); display: block; margin-top: 4px; }
+  .node.edge { border-color: var(--copper); }
+  .node.origin { border-color: var(--accent); }
+  .hop {
+    align-self: center;
+    color: var(--accent-ink);
+    font: 600 1.1rem/1 ui-monospace, monospace;
+    flex: none;
+  }
+  .caption { font-size: 0.82rem; color: var(--ink-soft); margin-top: 10px; }
+
+  ol.procedure { padding-left: 22px; }
+  ol.procedure > li { margin-bottom: 10px; }
+  ul.tight li { margin-bottom: 6px; }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<main>
+  <p class="kicker">wkx-platform · milestone design for review</p>
+  <h1>M3: Caddy + TLS</h1>
+  <p class="meta">2026-07-05 · Status: draft for review · Size L · follows the live M1 network and M2 Graviton Host</p>
+  <p class="lede">
+    M3 puts the platform services layer (Layer 3) on the Host: a custom-built Caddy terminating TLS
+    with one wildcard certificate, a routing contract that projects plug into with a single file, and a
+    real <code>hello</code> app proving the whole path from browser to container. After M3, the platform
+    serves <code>https://hello.wingkongexchange.dev</code> with valid TLS, and the origin is unreachable
+    except through Cloudflare.
+  </p>
+
+  <section id="s1">
+    <div class="sec-head"><span class="sec-num">1</span><h2>Scope and hands-on artefacts</h2></div>
+    <p>In scope: the <code>platform/</code> directory (Compose stack, Caddyfile, Caddy image build), the
+    <code>hello/</code> app, two ECR repositories, Cloudflare DNS records and zone settings, the DNS token
+    landing in SSM Parameter Store, and a pinned IPv6 address on the Host. Deploys are manual through an
+    SSM session; automation is M6's job.</p>
+    <p>Hands-on artefacts, unchanged from the ROADMAP:</p>
+    <ul class="tight">
+      <li><code>https://hello.wingkongexchange.dev</code> returns 200 with valid TLS in a browser.</li>
+      <li><code>curl -sI</code> against the EIP directly is blocked, proving the security group holds.</li>
+    </ul>
+    <p>One ROADMAP correction: "Origin SG hardened to Cloudflare IP ranges only" was delivered in M1
+    (the <code>web</code> security group already admits 443 solely from Cloudflare prefix lists, both IP
+    families). M3 verifies it live rather than building it.</p>
+  </section>
+
+  <section id="s2">
+    <div class="sec-head"><span class="sec-num">2</span><h2>Request path</h2></div>
+    <div class="flow">
+      <div class="node"><b>Browser</b><span>dual-stack, HTTP or HTTPS</span></div>
+      <div class="hop">&#8594;</div>
+      <div class="node edge"><b>Cloudflare edge</b><span>proxy on · WAF · Always Use HTTPS redirect · Full (strict) SSL</span></div>
+      <div class="hop">&#8594;</div>
+      <div class="node origin"><b>Origin 443</b><span>EIP (A) + pinned IPv6 (AAAA) · SG admits Cloudflare ranges only</span></div>
+      <div class="hop">&#8594;</div>
+      <div class="node origin"><b>Caddy</b><span>wildcard cert · snippet routing · <code>platform-prod</code></span></div>
+      <div class="hop">&#8594;</div>
+      <div class="node"><b>hello</b><span><code>wkx-edge</code> network · alias <code>hello-prod</code> · port 8000</span></div>
+    </div>
+    <p class="caption">The committed spec carries this as a Mermaid diagram; this page renders it inline for review.</p>
+    <p>Port 80 stays closed end to end: Cloudflare redirects HTTP at its edge, Caddy issues certificates via
+    DNS-01, and the origin's only listener is 443. Edge to origin runs over HTTPS against Caddy's Let's
+    Encrypt certificate, which Full (strict) mode validates.</p>
+    <div class="decision"><strong>Decision.</strong> The Host gets a static IPv6 address, assigned in
+    Terraform from the subnet's /64 (the IPv6 analogue of the EIP). It survives host replacement exactly
+    like the EIP does, so the AAAA record stays honest under ADR 0017's cattle semantics.</div>
+  </section>
+
+  <section id="s3">
+    <div class="sec-head"><span class="sec-num">3</span><h2>Terraform: aws root</h2></div>
+    <p>Three additions to <code>infra/aws/</code>, following the one-concern-per-file convention:</p>
+    <div class="table-wrap"><table>
+      <tr><th>File</th><th>Contents</th></tr>
+      <tr><td><code>ecr.tf</code> (new)</td><td>Two <code>aws_ecr_repository</code> resources: <code>wkx/caddy</code> and <code>wkx/hello</code>. Immutable tags (tags are content-addressed: <code>&lt;sha&gt;</code>), scan on push. No lifecycle policies yet; those are an M6 deliverable with the <code>ecr-repo</code> module, which these repos migrate into.</td></tr>
+      <tr><td><code>ec2.tf</code> (edit)</td><td><code>ipv6_addresses = [cidrhost(aws_subnet.public.ipv6_cidr_block, 16)]</code> pins the Host's IPv6. Replacement instances re-request the same address.</td></tr>
+      <tr><td><code>outputs.tf</code> (edit)</td><td>Adds <code>host_ipv6_address</code>, <code>caddy_ecr_repository_url</code>, <code>hello_ecr_repository_url</code>.</td></tr>
+      <tr><td><code>tests/</code> (edit)</td><td>New invariants: both ECR repos immutable with scan-on-push; instance carries the pinned IPv6.</td></tr>
+      <tr><td><code>host/cloud-init.yaml</code> (edit)</td><td>Adds <code>git</code> (packages) and <code>aws-cli</code> (snap, runcmd): prerequisites of the repo-checkout deploy model, owned by Layer 2 so a replacement Host needs no undocumented installs. Applying replaces the Host (ADR 0017, drill already exercised).</td></tr>
+    </table></div>
+    <p>Tagging: the ECR repos are per-service resources, so they carry <code>Service=caddy</code> /
+    <code>Service=hello</code> plus <code>Repo=wkx-platform</code>, and omit <code>Env</code> (images are
+    per-commit; the env decides which tag deploys where). The IPv6 address is host-level like the EIP.</p>
+    <div class="decision"><strong>Decision.</strong> ECR repositories are named <code>wkx/&lt;service&gt;</code>,
+    matching the path-style <code>/wkx/&lt;service&gt;/...</code> namespacing used by SSM parameters and log
+    groups, rather than the flat <code>wkx-</code> prefix used by infrastructure resource names.</div>
+  </section>
+
+  <section id="s4">
+    <div class="sec-head"><span class="sec-num">4</span><h2>Terraform: cloudflare root</h2></div>
+    <div class="table-wrap"><table>
+      <tr><th>File</th><th>Contents</th></tr>
+      <tr><td><code>records.tf</code> (new)</td><td>Proxied A record <code>hello</code> &#8594; EIP and proxied AAAA record <code>hello</code> &#8594; pinned IPv6. Both values arrive as new variables via the existing gitignored <code>*.local.tfvars</code> pattern (Invariant 7: no real addresses in committed files).</td></tr>
+      <tr><td><code>zone_settings.tf</code> (new)</td><td><code>ssl = strict</code> (Full strict), <code>always_use_https = on</code>, <code>min_tls_version = 1.2</code>. These make the "redirect at the edge, no port 80" invariant Terraform-managed instead of console defaults.</td></tr>
+      <tr><td><code>ssm.tf</code> (new)</td><td><code>aws_ssm_parameter</code> SecureString <code>/wkx/caddy/prod/CLOUDFLARE_API_TOKEN</code> holding the existing zone-scoped DNS Write token. Tagged <code>Service=caddy</code>, <code>Env=prod</code>.</td></tr>
+      <tr><td><code>providers.tf</code> (edit)</td><td>Adds the AWS provider (same region and <code>default_tags</code> shape as the aws root) so the root can write the parameter.</td></tr>
+      <tr><td><code>token.tf</code> (edit)</td><td>Comment updated: the token lands in SSM at M3, not M5. M5 builds the generic render-to-env-file tooling on top.</td></tr>
+    </table></div>
+    <div class="decision"><strong>Decision.</strong> The cloudflare root gains the AWS provider and owns the
+    token's SSM parameter end to end. The secret already lives in this root's encrypted state, so no new
+    exposure surface is created. Rotation is an apply plus an on-box env-file re-render and Caddy recreate;
+    the runbook is an M10 deliverable.</div>
+  </section>
+
+  <section id="s5">
+    <div class="sec-head"><span class="sec-num">5</span><h2>Platform layer: <code>platform/</code></h2></div>
+    <pre><code>platform/
+&#9500;&#9472;&#9472; compose.yml        Caddy only (CloudWatch agent lands M4, backup runner M10)
+&#9500;&#9472;&#9472; Caddyfile          global options + wildcard site + snippet import
+&#9500;&#9472;&#9472; caddy/
+&#9474;   &#9492;&#9472;&#9472; Dockerfile     xcaddy build with the caddy-dns/cloudflare plugin
+&#9492;&#9472;&#9472; env/
+    &#9492;&#9472;&#9472; prod.env       non-secret platform env (currently minimal)</code></pre>
+
+    <h3>Caddy image</h3>
+    <pre><code>FROM caddy:2-builder AS builder
+RUN xcaddy build --with github.com/caddy-dns/cloudflare
+
+FROM caddy:2
+COPY --from=builder /usr/bin/caddy /usr/bin/caddy</code></pre>
+    <p>Built for <code>linux/arm64</code> on the Mac (Apple silicon builds it natively) and pushed to
+    <code>wkx/caddy</code> tagged with the platform repo's short git SHA. Renovate picks up the base-image
+    pins at M7.</p>
+
+    <h3>Caddyfile</h3>
+    <pre><code>{
+	auto_https prefer_wildcard
+}
+
+*.wingkongexchange.dev {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
+	respond 404
+}
+
+import /etc/caddy/Caddyfile.d/*/*.caddy</code></pre>
+    <p>One DNS-01 wildcard certificate for <code>*.wingkongexchange.dev</code>; project snippets stay plain
+    host blocks and ride it. Current Caddy docs make wildcard reuse the default behaviour (2.10+); the
+    explicit <code>prefer_wildcard</code> flag covers 2.8/2.9. The plan's first implementation task verifies
+    the flag against the exact Caddy version the image builds, with the single-wildcard-site pattern
+    (matcher plus handle snippets) as the recorded fallback. Unmatched subdomains get a 404 from the
+    wildcard block. The import glob is <code>*/*.caddy</code>, all services and all envs on this host; the
+    ROADMAP's <code>*/&lt;env&gt;.caddy</code> wording was shorthand, and a per-env glob would break M11
+    preview envs, which share this Caddy.</p>
+
+    <h3>Compose stack</h3>
+    <pre><code># run as: docker compose -p platform-prod up -d
+services:
+  caddy:
+    image: &lt;account&gt;.dkr.ecr.ap-southeast-2.amazonaws.com/wkx/caddy:&lt;sha&gt;
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.5
+    ports:
+      - "443:443"
+    env_file:
+      - /srv/secrets/caddy/prod.env      # CLOUDFLARE_API_TOKEN, rendered from SSM
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - /etc/caddy/Caddyfile.d:/etc/caddy/Caddyfile.d:ro
+      - /srv/data/caddy/prod/data:/data          # certificates persist here
+      - /srv/data/caddy/prod/config:/config
+    networks: [wkx-edge]
+
+networks:
+  wkx-edge:
+    name: wkx-edge</code></pre>
+    <p>Certificates live on the Data volume under the standard <code>/srv/data/&lt;service&gt;/&lt;env&gt;</code>
+    pattern, so host replacement never re-issues certs. Only 443/TCP is published: Cloudflare reaches
+    origins over TCP, and edge HTTP/3 terminates at Cloudflare. The secrets env-file path pre-adopts M5's
+    <code>/srv/secrets/&lt;service&gt;/&lt;env&gt;.env</code> standard.</p>
+    <div class="decision"><strong>Decision.</strong> The platform stack owns the shared <code>wkx-edge</code>
+    Docker network (fixed name, declared in its compose.yml). App services join it as an external network
+    and register the alias <code>&lt;service&gt;-&lt;env&gt;</code>, which is what Caddy snippets
+    <code>reverse_proxy</code> to. Compose project names follow the same shape: <code>platform-prod</code>
+    for this stack, <code>hello-prod</code> for the app.</div>
+  </section>
+
+  <section id="s6">
+    <div class="sec-head"><span class="sec-num">6</span><h2>The hello app: <code>hello/</code></h2></div>
+    <p>A real mini-app at the repo root, laid out exactly like a future <code>wkx-hello</code> repo so the
+    M6 extraction is a directory copy:</p>
+    <pre><code>hello/
+&#9500;&#9472;&#9472; src/app.py         stdlib HTTP server, port 8000; responds with MESSAGE
+&#9500;&#9472;&#9472; Dockerfile         python:3.13-slim, arm64, non-root
+&#9500;&#9472;&#9472; compose.yml        one service, wkx-edge external, alias hello-${ENV}
+&#9500;&#9472;&#9472; caddy.snippet      one host block, env-templated
+&#9492;&#9472;&#9472; README.md</code></pre>
+    <p><code>app.py</code> answers 200 with a MESSAGE environment variable defaulting to a hello page.
+    That makes M5's hands-on artefact (set <code>/wkx/hello/prod/MESSAGE</code>, redeploy, see the new
+    value) a config change rather than a code change. The deployed snippet at
+    <code>/etc/caddy/Caddyfile.d/hello/prod.caddy</code>:</p>
+    <pre><code>hello.wingkongexchange.dev {
+	reverse_proxy hello-prod:8000
+}</code></pre>
+    <p>prod hides the env suffix in the hostname per the naming model; the alias and Compose project keep
+    it explicit. At M3 the snippet is rendered by hand from <code>caddy.snippet</code>; M6's deploy script
+    takes that over.</p>
+  </section>
+
+  <section id="s7">
+    <div class="sec-head"><span class="sec-num">7</span><h2>Deploy procedure (manual until M6)</h2></div>
+    <ol class="procedure">
+      <li><strong>Apply aws root.</strong> ECR repos and pinned IPv6 land; capture new outputs.</li>
+      <li><strong>Build and push images</strong> from the Mac: <code>aws ecr get-login-password | docker login</code>, then arm64 builds of <code>wkx/caddy:&lt;sha&gt;</code> and <code>wkx/hello:&lt;sha&gt;</code>.</li>
+      <li><strong>Apply cloudflare root.</strong> DNS records, zone settings, and the SSM token parameter land (EIP and IPv6 supplied via the local tfvars).</li>
+      <li><strong>Bootstrap the box</strong> in an SSM session, as the <code>platform</code> user: clone <code>wkx-platform</code> to <code>/home/platform/wkx-platform</code>, create <code>/etc/caddy/Caddyfile.d/</code>, render <code>/srv/secrets/caddy/prod.env</code> from SSM (<code>aws ssm get-parameter --with-decryption</code>, mode 600), ECR login using the instance role.</li>
+      <li><strong>Start the stacks:</strong> <code>docker compose -p platform-prod up -d</code> in <code>platform/</code>, then <code>ENV=prod docker compose -p hello-prod up -d</code> in <code>hello/</code>, drop the rendered snippet, and <code>caddy reload</code> inside the container.</li>
+      <li><strong>Verify</strong> (section 8) and record state docs.</li>
+    </ol>
+    <p>Subsequent deploys are <code>git pull</code> plus the relevant <code>compose up</code> / <code>caddy reload</code>,
+    matching M9's home-server model of a repo checkout on the box. The checkout is disposable (root volume);
+    nothing under it holds state.</p>
+  </section>
+
+  <section id="s8">
+    <div class="sec-head"><span class="sec-num">8</span><h2>Verification</h2></div>
+    <ul class="tight">
+      <li><code>terraform test</code> passes with the new ECR and IPv6 invariants; <code>fmt</code> and <code>validate</code> clean on both roots.</li>
+      <li><code>https://hello.wingkongexchange.dev</code> returns 200; the served certificate's SAN is <code>*.wingkongexchange.dev</code> (one wildcard, not a per-host cert), checked with <code>openssl s_client</code>.</li>
+      <li><code>curl -sI http://hello.wingkongexchange.dev</code> returns a 301 to HTTPS issued by Cloudflare (edge redirect, no origin port 80).</li>
+      <li><code>curl -s --max-time 5 https://&lt;EIP&gt;</code> and the IPv6 equivalent time out (SG drops non-Cloudflare traffic).</li>
+      <li>An unrouted subdomain returns 404 from the wildcard block (tested on the box with <code>curl --resolve ...:443:127.0.0.1</code>, since unrouted names have no DNS record and never reach the edge).</li>
+      <li>On the box: cert material exists under <code>/srv/data/caddy/prod/data</code>; both Compose projects are up; the token file is mode 600 and owned by <code>platform</code>.</li>
+      <li>Replacement resilience: a replaced Host re-acquires the same EIP and IPv6 and remounts <code>/srv/data</code>. The checkout, <code>Caddyfile.d</code>, and <code>/srv/secrets</code> die with the root volume, so the deploy procedure re-runs from step 4; certificates survive on the Data volume.</li>
+    </ul>
+    <p>Cost delta: effectively nil (ECR storage for two small images, well under a dollar a month).</p>
+  </section>
+
+  <section id="s9">
+    <div class="sec-head"><span class="sec-num">9</span><h2>Documentation and out of scope</h2></div>
+    <p>Docs updated in M3: ROADMAP corrections noted in sections 1 and 5; <code>token.tf</code> comment;
+    <code>docs/setup/m3-infra-state.md</code> template plus gitignored local sibling; the CLAUDE.md
+    repository-state paragraph; CONTEXT.md gains Platform stack, Edge network, and Edge alias; ADR 0018
+    (wildcard cert, host-block snippets) and ADR 0019 (Edge network alias contract).</p>
+    <p>Out of scope, arriving in their own milestones:</p>
+    <ul class="tight">
+      <li>CloudWatch agent configuration, Caddy access-log shipping, dashboards: M4.</li>
+      <li>Secrets helper and generalised env-file rendering: M5 (M3's single hand-rendered env file is the seed).</li>
+      <li>CI/CD, deploy script, ECR lifecycle policies, extracting hello to <code>wkx-hello</code>: M6.</li>
+      <li>Reference project under <code>template/</code>: M8 (hello is its ancestor).</li>
+      <li>Home profile of the platform stack: M9.</li>
+    </ul>
+  </section>
+</main>

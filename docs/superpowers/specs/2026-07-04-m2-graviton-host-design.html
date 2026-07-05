@@ -1,0 +1,524 @@
+<title>WKX M2 · Graviton Host Design</title>
+<style>
+  :root {
+    --bg: #FAFBFC;
+    --surface: #F1F5F8;
+    --surface-2: #E9EFF4;
+    --ink: #1C2530;
+    --muted: #5A6B7C;
+    --accent: #0E7A70;
+    --accent-soft: #D5EBE8;
+    --warn: #B45309;
+    --warn-soft: #F6E8D4;
+    --line: #DDE5EC;
+    --code-bg: #EDF2F6;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12181F;
+      --surface: #1A222C;
+      --surface-2: #212B37;
+      --ink: #E6EDF3;
+      --muted: #8FA1B3;
+      --accent: #3ED8C3;
+      --accent-soft: #123B36;
+      --warn: #E0A458;
+      --warn-soft: #3A2B15;
+      --line: #26303B;
+      --code-bg: #1C2530;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12181F;
+    --surface: #1A222C;
+    --surface-2: #212B37;
+    --ink: #E6EDF3;
+    --muted: #8FA1B3;
+    --accent: #3ED8C3;
+    --accent-soft: #123B36;
+    --warn: #E0A458;
+    --warn-soft: #3A2B15;
+    --line: #26303B;
+    --code-bg: #1C2530;
+  }
+  :root[data-theme="light"] {
+    --bg: #FAFBFC;
+    --surface: #F1F5F8;
+    --surface-2: #E9EFF4;
+    --ink: #1C2530;
+    --muted: #5A6B7C;
+    --accent: #0E7A70;
+    --accent-soft: #D5EBE8;
+    --warn: #B45309;
+    --warn-soft: #F6E8D4;
+    --line: #DDE5EC;
+    --code-bg: #EDF2F6;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.6;
+    margin: 0;
+    padding: 3rem 1.25rem 5rem;
+    font-size: 16px;
+  }
+  main { max-width: 50rem; margin: 0 auto; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 0.75rem;
+  }
+  h1 {
+    font-size: 2rem;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin: 0 0 0.5rem;
+    text-wrap: balance;
+  }
+  .subtitle { color: var(--muted); margin: 0 0 0.5rem; max-width: 42rem; }
+  .meta {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    margin: 1.25rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  section { margin-top: 3.25rem; }
+  h2 {
+    font-size: 1.3rem;
+    letter-spacing: -0.01em;
+    margin: 0 0 1rem;
+    text-wrap: balance;
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+  }
+  h2 .no {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    font-weight: 400;
+    color: var(--accent);
+  }
+  h3 { font-size: 1rem; margin: 1.5rem 0 0.5rem; }
+  p { margin: 0.75rem 0; max-width: 68ch; }
+  ul, ol { max-width: 68ch; padding-left: 1.4rem; }
+  li { margin: 0.3rem 0; }
+  li::marker { color: var(--muted); }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.85em;
+    background: var(--code-bg);
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 0.9rem 1.1rem;
+    overflow-x: auto;
+    font-size: 0.82rem;
+    line-height: 1.55;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.88rem;
+    margin: 1rem 0;
+  }
+  .table-wrap { overflow-x: auto; }
+  th {
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    font-weight: 500;
+    padding: 0.5rem 0.9rem 0.4rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+  td {
+    padding: 0.55rem 0.9rem 0.55rem 0;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  td.num { font-variant-numeric: tabular-nums; text-align: right; padding-right: 0; }
+  th.num { text-align: right; padding-right: 0; }
+
+  .decisions { display: grid; grid-template-columns: repeat(auto-fit, minmax(21rem, 1fr)); gap: 0.9rem; margin-top: 1.25rem; }
+  .decision {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1rem 1.15rem;
+  }
+  .decision .q {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin: 0 0 0.4rem;
+  }
+  .decision .a { font-weight: 650; margin: 0 0 0.35rem; font-size: 0.95rem; }
+  .decision .why { color: var(--muted); font-size: 0.85rem; margin: 0; }
+
+  .chip {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-radius: 999px;
+    padding: 0.15rem 0.6rem;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+  }
+  .chip.warn { background: var(--warn-soft); color: var(--warn); }
+
+  .callout {
+    border-left: 3px solid var(--warn);
+    background: var(--warn-soft);
+    border-radius: 0 8px 8px 0;
+    padding: 0.8rem 1.1rem;
+    margin: 1.25rem 0;
+    max-width: 68ch;
+  }
+  .callout p { margin: 0.35rem 0; }
+  .callout .label {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--warn);
+  }
+
+  /* diagram */
+  .diagram {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-top: 1.25rem;
+    overflow-x: auto;
+  }
+  .diagram .lane { display: flex; gap: 1rem; align-items: stretch; min-width: 620px; }
+  .dbox {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 0.75rem 0.9rem;
+    background: var(--bg);
+  }
+  .dbox .dlabel {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 0.4rem;
+  }
+  .dbox .dname { font-weight: 650; font-size: 0.9rem; }
+  .dbox .dnote { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); margin-top: 0.25rem; }
+  .dbox.accent { border-color: var(--accent); }
+  .vpc { flex: 1; }
+  .vpc-inner { display: flex; gap: 0.9rem; margin-top: 0.6rem; flex-wrap: wrap; }
+  .side { display: flex; flex-direction: column; gap: 0.9rem; min-width: 170px; }
+
+  footer {
+    margin-top: 4rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-family: var(--mono);
+  }
+</style>
+
+<main>
+  <header>
+    <p class="eyebrow">wkx-platform · milestone 2 · design for review</p>
+    <h1>M2 · Graviton Host</h1>
+    <p class="subtitle">One ARM64 EC2 instance, bootstrapped by cloud-init, reachable only through SSM, with app data on its own EBS volume. The first always-on resources in the platform account.</p>
+    <ul class="meta">
+      <li>date 2026-07-04</li>
+      <li>status approved in brainstorm · spec committed for review</li>
+      <li>depends on M1 (applied, live)</li>
+      <li>unblocks M3 Caddy + TLS</li>
+    </ul>
+  </header>
+
+  <section>
+    <h2><span class="no">§1</span> Scope</h2>
+    <p>M2 adds the Host (per <code>CONTEXT.md</code>: the single box that runs everything) to the live M1 network. Everything lands by extending the existing <code>infra/aws/</code> Terraform root plus one new file, <code>host/cloud-init.yaml</code>. No Caddy, no Compose stack, no DNS records yet; those are M3.</p>
+    <p><strong>Hands-on artefacts</strong> (from ROADMAP.md, unchanged):</p>
+    <ul>
+      <li><code>aws ssm start-session --target &lt;instance-id&gt;</code> connects without SSH.</li>
+      <li>On the box: <code>docker run hello-world</code> works; <code>df -h /srv/data</code> shows the mounted data volume.</li>
+    </ul>
+    <div class="diagram">
+      <div class="lane">
+        <div class="dbox vpc">
+          <span class="dlabel">VPC 10.0.0.0/16 + IPv6 · M1, live</span>
+          <div class="dbox" style="margin-top:0.25rem;">
+            <span class="dlabel">public subnet · ap-southeast-2a</span>
+            <div class="vpc-inner">
+              <div class="dbox accent">
+                <span class="dlabel">new · EC2</span>
+                <div class="dname">wkx-host</div>
+                <div class="dnote">t4g.medium · Ubuntu 26.04 arm64<br>SGs: web + host-egress<br>IMDSv2 · no key pair</div>
+              </div>
+              <div class="dbox accent">
+                <span class="dlabel">new · EBS gp3</span>
+                <div class="dname">root 12 GB</div>
+                <div class="dnote">OS + /var/lib/docker<br>dies with instance</div>
+              </div>
+              <div class="dbox accent">
+                <span class="dlabel">new · EBS gp3</span>
+                <div class="dname">wkx-host-data 20 GB</div>
+                <div class="dnote">/srv/data · prevent_destroy<br>survives replacement</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="side">
+          <div class="dbox accent">
+            <span class="dlabel">new · EIP</span>
+            <div class="dname">wkx-host</div>
+            <div class="dnote">re-associates on replace<br>M3 DNS targets this</div>
+          </div>
+          <div class="dbox accent">
+            <span class="dlabel">new · IAM</span>
+            <div class="dname">wkx-host role + instance profile</div>
+            <div class="dnote">SSM core · ECR pull<br>CW write · /wkx/* params</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="no">§2</span> Decisions made in this brainstorm</h2>
+    <div class="decisions">
+      <div class="decision">
+        <p class="q">Terraform root placement</p>
+        <p class="a">Extend infra/aws/</p>
+        <p class="why">Direct references to the M1 VPC, subnet, and security groups; one state, one plan. Design §5 already scopes infra/aws/ as “account, VPC, EC2, IAM …”. No remote-state plumbing.</p>
+      </div>
+      <div class="decision">
+        <p class="q">Ubuntu release</p>
+        <p class="a">26.04 LTS (Resolute)</p>
+        <p class="why">Current LTS, support to 2031, avoids an OS replacement cycle in a year. Supersedes the roadmap’s 24.04 (written before 26.04 shipped). ROADMAP gets a one-line update.</p>
+      </div>
+      <div class="decision">
+        <p class="q">AMI selection</p>
+        <p class="a">Canonical SSM public parameter</p>
+        <p class="why">Resolved at plan time via a data source; no hardcoded AMI ID ever. Path verified against Canonical’s AWS docs (see §4).</p>
+      </div>
+      <div class="decision">
+        <p class="q">Backups-bucket IAM</p>
+        <p class="a">Defer to M10</p>
+        <p class="why">The bucket doesn’t exist until M10; granting nothing now is strict least privilege. M10 adds the statement to the same role. ROADMAP’s M2 bullet gets a note.</p>
+      </div>
+      <div class="decision">
+        <p class="q">/srv/data provisioning</p>
+        <p class="a">Separate 20 GB gp3 volume</p>
+        <p class="why">App data survives instance replacement; M10 snapshots target only the data volume. Root stays a 12 GB throwaway.</p>
+      </div>
+      <div class="decision">
+        <p class="q">host/ layout</p>
+        <p class="a">Self-contained cloud-init.yaml</p>
+        <p class="why">No host/shared/ until M9 gives it a second consumer. Rendered via templatefile() for the values Terraform knows (data-volume ID).</p>
+      </div>
+      <div class="decision">
+        <p class="q">Host lifecycle</p>
+        <p class="a">Replace on bootstrap change</p>
+        <p class="why">user_data_replace_on_change = true. Cattle semantics: the box always matches its declared bootstrap. EIP re-associates; data volume re-attaches; /srv/data survives.</p>
+      </div>
+      <div class="decision">
+        <p class="q">CPU credits</p>
+        <p class="a">standard, not unlimited</p>
+        <p class="why">Hard cost cap: an exhausted credit bank throttles to baseline instead of buying surplus credits (worst case ≈ USD $47/mo extra). Workload idles far below baseline; M4 charts CPUCreditBalance.</p>
+      </div>
+      <div class="decision">
+        <p class="q">Savings Plan timing</p>
+        <p class="a">Stays at M10</p>
+        <p class="why">The on-demand burn-in (≈ NZD $62/mo, over budget) is accepted as temporary while t4g.medium proves itself. Committing early would lock the size before it has carried real workloads.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="no">§3</span> Terraform shape</h2>
+    <p>New files in the existing <code>infra/aws/</code> root, following the M1 one-concern-per-file convention:</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>File</th><th>Contents</th></tr></thead>
+      <tbody>
+        <tr><td><code>ami.tf</code></td><td><code>data "aws_ssm_parameter"</code> resolving the Canonical Ubuntu 26.04 arm64 AMI</td></tr>
+        <tr><td><code>iam.tf</code></td><td>Role <code>wkx-host</code>, trust policy for EC2, three custom policies + one managed attachment, instance profile</td></tr>
+        <tr><td><code>ec2.tf</code></td><td><code>aws_instance.host</code> (t4g.medium, IMDSv2, root volume block, user_data via templatefile), <code>aws_ebs_volume.data</code>, <code>aws_volume_attachment</code></td></tr>
+        <tr><td><code>eip.tf</code></td><td><code>aws_eip.host</code> + <code>aws_eip_association</code></td></tr>
+        <tr><td><code>outputs.tf</code></td><td>adds <code>instance_id</code>, <code>host_public_ip</code>, <code>data_volume_id</code>, <code>instance_profile_name</code></td></tr>
+        <tr><td><code>tests/host_invariants.tftest.hcl</code></td><td>plan-time invariant assertions (§8)</td></tr>
+        <tr><td><code>../../host/cloud-init.yaml</code></td><td>cloud-init user-data template (§7)</td></tr>
+      </tbody>
+    </table></div>
+    <p>All M2 resources are host-level: they carry the provider <code>default_tags</code> (<code>Project=wkx</code>, <code>ManagedBy=terraform</code>, <code>Repo=wkx-platform</code>) plus a <code>Name</code>, and deliberately omit <code>Env</code>/<code>Service</code>, exactly like every M1 resource.</p>
+  </section>
+
+  <section>
+    <h2><span class="no">§4</span> AMI resolution</h2>
+    <p>Never a hardcoded <code>ami-…</code> literal. Terraform reads Canonical’s published public parameter:</p>
+    <pre><code>data "aws_ssm_parameter" "ubuntu_arm64" {
+  name = "/aws/service/canonical/ubuntu/server/26.04/stable/current/arm64/hvm/ebs-gp3/ami-id"
+}</code></pre>
+    <p>The 24.04 form of this path is verified against Canonical’s AWS documentation; the 26.04 parameter follows the same documented <code>ubuntu/$PRODUCT/$RELEASE/…</code> scheme and gets a live <code>aws ssm get-parameters</code> check as the first implementation step.</p>
+    <p>Because “current” moves with Canonical’s image releases, the data source alone would try to replace the instance whenever a new AMI is published. The instance therefore sets <code>lifecycle { ignore_changes = [ami] }</code>: AMI refreshes happen deliberately (taint or bootstrap change), not as a surprise side effect of an unrelated plan.</p>
+  </section>
+
+  <section>
+    <h2><span class="no">§5</span> IAM instance profile, least privilege</h2>
+    <p>One role, <code>wkx-host</code>, assumed by <code>ec2.amazonaws.com</code>, wrapped in an instance profile:</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Grant</th><th>Mechanism</th><th>Scope</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>SSM Session Manager + RunCommand</td>
+          <td>AWS managed policy <code>AmazonSSMManagedInstanceCore</code></td>
+          <td>Agent registration, sessions, command execution. The standard minimal policy for both.</td>
+        </tr>
+        <tr>
+          <td>ECR pull</td>
+          <td>Custom policy</td>
+          <td><code>ecr:GetAuthorizationToken</code> on <code>*</code> (API requirement); <code>BatchGetImage</code>, <code>GetDownloadUrlForLayer</code>, <code>BatchCheckLayerAvailability</code> on <code>repository/*</code> in this account and region. Pull-only, no push.</td>
+        </tr>
+        <tr>
+          <td>CloudWatch write</td>
+          <td>Custom policy</td>
+          <td><code>logs:CreateLogStream</code>, <code>logs:PutLogEvents</code>, <code>logs:DescribeLogStreams</code> on <code>log-group:/wkx/*</code> only (groups themselves are created by Terraform in M4); <code>cloudwatch:PutMetricData</code> conditioned on the CloudWatch agent namespace.</td>
+        </tr>
+        <tr>
+          <td>SSM Parameter read</td>
+          <td>Custom policy</td>
+          <td><code>ssm:GetParameter</code>, <code>GetParameters</code>, <code>GetParametersByPath</code> on <code>parameter/wkx/*</code>. SecureStrings use the AWS-managed <code>aws/ssm</code> key, so no extra KMS statement.</td>
+        </tr>
+        <tr>
+          <td>S3 backups write</td>
+          <td><span class="chip">deferred to M10</span></td>
+          <td>No statement in M2. M10 creates the bucket and adds the grant to this same role.</td>
+        </tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2><span class="no">§6</span> Instance and volumes</h2>
+    <ul>
+      <li><strong>Instance:</strong> <code>t4g.medium</code> in the M1 public subnet, security groups <code>web</code> + <code>host-egress</code>, dual-stack (public IPv4 via EIP, IPv6 from the subnet).</li>
+      <li><strong>No SSH surface:</strong> no <code>key_name</code>, port 22 closed (M1 invariant), access via SSM only.</li>
+      <li><strong>IMDSv2 required:</strong> <code>http_tokens = "required"</code>, hop limit 2 so containers can reach instance credentials through Docker’s NAT if ever needed.</li>
+      <li><strong>CPU credits:</strong> <code>standard</code>, not the t4g default <code>unlimited</code>: a runaway loop can’t buy surplus credits and blow the budget; sustained throttling would show in M4 dashboards, and the documented upgrade is t4g.large, not surprise burst spend. <span class="chip">decided</span></li>
+      <li><strong>Root volume:</strong> 12 GB gp3, encrypted (default EBS KMS key), delete-on-termination. Holds OS + <code>/var/lib/docker</code>; treated as disposable.</li>
+      <li><strong>Data volume:</strong> <code>aws_ebs_volume.data</code>, 20 GB gp3, encrypted, same AZ, <code>prevent_destroy</code>, attached as <code>/dev/sdf</code>. Independent of the instance’s lifecycle; this is what M10 snapshots. The attachment sets <code>stop_instance_before_detaching = true</code>, so a replacement cleanly unmounts the filesystem rather than force-detaching a live volume.</li>
+      <li><strong>Monitoring:</strong> basic (5-minute, free). Detailed monitoring adds cost for no M4 benefit; the CloudWatch agent supplies richer host metrics anyway.</li>
+      <li><strong>EIP:</strong> <code>aws_eip.host</code> + explicit <code>aws_eip_association</code>, so replacement instances pick the same public IP back up and M3’s DNS records stay valid.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="no">§7</span> cloud-init (host/cloud-init.yaml)</h2>
+    <p>A single self-contained template, rendered by <code>templatefile()</code> with the data-volume ID. First boot, in order:</p>
+    <ol>
+      <li><strong>apt update + upgrade</strong>, then install prerequisites.</li>
+      <li><strong>Docker Engine + Compose plugin</strong> from Docker’s official apt repository (arm64): <code>docker-ce</code>, <code>docker-ce-cli</code>, <code>containerd.io</code>, <code>docker-buildx-plugin</code>, <code>docker-compose-plugin</code>. Ubuntu’s <code>docker.io</code> lags too far for a platform whose upgrade story (M7 Renovate) assumes current engines.</li>
+      <li><strong>Data volume format-if-blank + mount</strong>, via a single idempotent <code>runcmd</code> script rather than the <code>fs_setup</code>/<code>mounts</code> modules (those run seconds into boot, before Terraform can even call AttachVolume: a boot-order race caught in the grill). The script polls for the stable <code>/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol…</code> symlink (from the templated volume ID) for up to 3 minutes, runs <code>mkfs.ext4 -L wkx-data</code> only if <code>blkid</code> reports no filesystem, appends the <code>nofail</code> fstab line if absent, mounts, and hands <code>/srv/data</code> to the <code>platform</code> user. Every step is a no-op when its work is already done.</li>
+      <li><strong>platform user:</strong> system user, member of <code>docker</code>, no password, no SSH keys, owns <code>/srv/data</code>. Compose workloads run as this user from M3 on.</li>
+      <li><strong>Agents:</strong> assert the preinstalled SSM agent (snap) is enabled and running; install the CloudWatch agent arm64 package but leave it unconfigured; its config is an M4 deliverable.</li>
+    </ol>
+    <p>Nothing else. Caddy, the platform Compose stack, unattended-upgrades (M7), and restic (M10) all arrive in their own milestones.</p>
+  </section>
+
+  <section>
+    <h2><span class="no">§8</span> Testing and verification</h2>
+    <p><strong>Plan-time invariants</strong> (<code>tests/host_invariants.tftest.hcl</code>, same style as M1’s security test):</p>
+    <ul>
+      <li>Instance has no <code>key_name</code> (no-SSH invariant, ADR 0003).</li>
+      <li><code>metadata_options.http_tokens == "required"</code>.</li>
+      <li>Instance security groups are exactly <code>web</code> + <code>host-egress</code>.</li>
+      <li>Root and data volumes are encrypted gp3.</li>
+      <li><code>user_data_replace_on_change == true</code> and AMI comes from the SSM parameter data source.</li>
+    </ul>
+    <p><strong>Live verification</strong> after apply:</p>
+    <pre><code># session without SSH (hands-on artefact)
+aws ssm start-session --target "$(terraform output -raw instance_id)"
+
+# on the box
+docker run hello-world          # engine + arm64 image pull work
+df -h /srv/data                 # 20 GB ext4, labelled wkx-data
+id platform                     # user exists, in docker group
+sudo ss -tlnp | grep ':22'      # empty: nothing listens on 22</code></pre>
+    <p><strong>Replacement drill</strong> (proves the cattle semantics before M3 depends on them): touch a comment in cloud-init.yaml, apply, confirm the instance is replaced, the EIP survives, and a marker file written to <code>/srv/data</code> beforehand is still there.</p>
+  </section>
+
+  <section>
+    <h2><span class="no">§9</span> Cost, the honest version</h2>
+    <p>M2 starts the always-on meter. On-demand (until the Savings Plan):</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Line item</th><th class="num">USD/mo</th></tr></thead>
+      <tbody>
+        <tr><td>EC2 t4g.medium, on-demand, ap-southeast-2 (~$0.042/hr)</td><td class="num">≈ 31.00</td></tr>
+        <tr><td>EBS gp3 32 GB (12 root + 20 data)</td><td class="num">≈ 3.07</td></tr>
+        <tr><td>Elastic IP (public IPv4)</td><td class="num">≈ 3.65</td></tr>
+        <tr><td><strong>Total on-demand</strong></td><td class="num"><strong>≈ 37.70</strong></td></tr>
+        <tr><td>Same stack after the 1-yr Compute Savings Plan (M10)</td><td class="num">≈ 23.70</td></tr>
+      </tbody>
+    </table></div>
+    <div class="callout">
+      <p class="label">Budget flag</p>
+      <p>On-demand ≈ USD $38/mo ≈ <strong>NZD $62/mo</strong>, which is over the NZD $50 budget until the Savings Plan lands. The design spec anticipated 2–4 weeks on-demand; the handoff’s “≈ $24/mo on-demand” figure was actually the post-Savings-Plan number. <strong>Decided:</strong> the overage is accepted as the planned burn-in and the Savings Plan purchase stays at M10, locking ≈ NZD $40/mo from there. The billing alarm itself remains M4.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="no">§10</span> Documentation updates in M2</h2>
+    <ul>
+      <li><code>ROADMAP.md</code>: 24.04 → 26.04; note that the S3 backups grant moved to M10.</li>
+      <li><code>docs/setup/m2-infra-state.md</code> (public-safe template) + gitignored <code>.local.md</code> sibling recording instance ID, EIP, volume ID.</li>
+      <li><code>CLAUDE.md</code> repository-state paragraph: infra and host code now exist.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="no">§11</span> Out of scope</h2>
+    <ul>
+      <li>Caddy, platform Compose stack, DNS records → M3.</li>
+      <li>CloudWatch agent configuration, dashboards, billing alarm → M4.</li>
+      <li>SSM parameters themselves and the secrets helper → M5.</li>
+      <li><code>host/shared/</code> and <code>host/bootstrap.sh</code> → M9.</li>
+      <li>Backups bucket, restic, DLM snapshots, S3 IAM grant → M10.</li>
+    </ul>
+  </section>
+
+  <footer>
+    wkx-platform · M2 design · review copy · real account identifiers intentionally absent (Invariant 7)
+  </footer>
+</main>
