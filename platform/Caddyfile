@@ -1,5 +1,6 @@
 # Platform Caddyfile. One DNS-01 wildcard certificate for the apps apex;
 # project snippets are plain host blocks that ride it (ADR 0018).
+# No auto_https option: wildcard reuse is Caddy's default from 2.10 (ADR 0018).
 
 *.wingkongexchange.dev {
 	tls {

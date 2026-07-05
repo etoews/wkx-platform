@@ -192,6 +192,12 @@
 <main>
   <p class="kicker">wkx-platform · milestone design for review</p>
   <h1>M3: Caddy + TLS</h1>
+  <div style="border-left: 3px solid var(--copper); background: var(--code-bg); border-radius: 0 6px 6px 0; padding: 12px 18px; margin: 18px 0;">
+    <strong style="color: var(--copper);">Archived pre-execution review copy (2026-07-05).</strong>
+    As executed: no auto_https block in the Caddyfile (ADR 0018 M3 execution note); snippets flattened to
+    Caddyfile.d/&lt;service&gt;-&lt;env&gt;.caddy with import glob *.caddy; the pinned IPv6 is verified live
+    rather than in terraform test. See the .md spec beside this file for the corrected design.
+  </div>
   <p class="meta">2026-07-05 · Status: draft for review · Size L · follows the live M1 network and M2 Graviton Host</p>
   <p class="lede">
     M3 puts the platform services layer (Layer 3) on the Host: a custom-built Caddy terminating TLS

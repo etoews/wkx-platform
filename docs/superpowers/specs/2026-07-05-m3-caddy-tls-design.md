@@ -55,7 +55,7 @@ Port 80 stays closed end to end: Cloudflare redirects HTTP at its edge, Caddy is
 | `ecr.tf` (new) | Two `aws_ecr_repository` resources: `wkx/caddy` and `wkx/hello`. Immutable tags (tags are content-addressed `<sha>`), scan on push. No lifecycle policies yet; those are an M6 deliverable with the `ecr-repo` module, which these repos migrate into. |
 | `ec2.tf` (edit) | `ipv6_addresses = [cidrhost(aws_subnet.public.ipv6_cidr_block, 16)]` pins the Host's IPv6. Replacement instances re-request the same address. |
 | `outputs.tf` (edit) | Adds `host_ipv6_address`, `caddy_ecr_repository_url`, `hello_ecr_repository_url`. |
-| `tests/` (edit) | New invariants: both ECR repos immutable with scan-on-push; the instance carries the pinned IPv6. |
+| `tests/` (edit) | New invariant: both ECR repos immutable with scan-on-push. The pinned IPv6 is not a new `terraform test` assertion: it derives from the VPC's computed IPv6 block, so a fresh-create plan reports it unknown; it is verified live after apply (§7) instead. |
 | `host/cloud-init.yaml` (edit) | Adds `git` to packages and `aws-cli` (snap) to runcmd: prerequisites of the repo-checkout deploy model, owned by Layer 2 so a replacement Host needs no undocumented installs. Applying this replaces the Host (ADR 0017, drill already exercised). |
 
 Tagging: the ECR repos are per-service resources, so they carry `Service=caddy` / `Service=hello` plus `Repo=wkx-platform`, and omit `Env` (images are per-commit; the env decides which tag deploys where). The IPv6 address is host-level like the EIP.
@@ -180,8 +180,8 @@ Subsequent deploys are `git pull` plus the relevant `compose up` / `caddy reload
 **Plan-time invariants** (extending the existing test files):
 
 - Both ECR repos: immutable tags, scan on push.
-- The instance carries the pinned IPv6 address.
 - Existing invariants (no key pair, IMDSv2, encrypted gp3 volumes, SSM-sourced AMI) keep passing.
+- The pinned IPv6 address is not asserted here: it derives from the VPC's computed IPv6 block, so a fresh-create plan reports it unknown. It is verified live after apply instead (see below).
 
 **Live verification** after deploy:
 
@@ -211,7 +211,7 @@ Effectively nil delta: ECR storage for two small images, well under a dollar a m
 
 ## 9. Documentation updates in M3
 
-- `ROADMAP.md`: SG hardening was delivered in M1 (M3 verifies); import glob is `*/*.caddy`; token lands in SSM at M3.
+- `ROADMAP.md`: SG hardening was delivered in M1 (M3 verifies); import glob is `*.caddy` with flat `<service>-<env>.caddy` snippets; token lands in SSM at M3.
 - `infra/cloudflare/token.tf`: comment updated (SSM at M3, not M5).
 - `docs/setup/m3-infra-state.md` (public-safe template) plus gitignored `.local.md` sibling recording ECR URLs, pinned IPv6, deployed image tags.
 - `CLAUDE.md` repository-state paragraph: `platform/` and `hello/` now exist.
