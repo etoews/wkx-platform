@@ -49,9 +49,9 @@ resource "aws_iam_role_policy" "ecr_pull" {
   })
 }
 
-# Log groups themselves are created by Terraform in M4; the box only writes.
-# PutMetricData is pinned to the CloudWatch agent's default namespace; M4
-# adjusts the condition if it renames the namespace.
+# Log groups are created by Terraform (logs.tf); the box only writes.
+# PutMetricData stays pinned to the agent's default CWAgent namespace,
+# which M4 kept.
 resource "aws_iam_role_policy" "cloudwatch_write" {
   name = "cloudwatch-write"
   role = aws_iam_role.host.id
