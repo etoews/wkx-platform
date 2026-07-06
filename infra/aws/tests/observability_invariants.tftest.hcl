@@ -109,4 +109,66 @@ run "alarms_wired_to_sns" {
     ])
     error_message = "The credit alarm reads AWS/EC2 CPUCreditBalance, alarming low."
   }
+
+  assert {
+    condition = alltrue([
+      aws_cloudwatch_metric_alarm.disk_root.namespace == "CWAgent",
+      aws_cloudwatch_metric_alarm.disk_data.namespace == "CWAgent",
+      aws_cloudwatch_metric_alarm.mem.namespace == "CWAgent",
+      aws_cloudwatch_metric_alarm.cpu.namespace == "CWAgent",
+    ])
+    error_message = "The four agent alarms read CWAgent metrics."
+  }
+
+  assert {
+    condition = alltrue([
+      aws_cloudwatch_metric_alarm.disk_root.metric_name == "disk_used_percent",
+      aws_cloudwatch_metric_alarm.disk_data.metric_name == "disk_used_percent",
+      aws_cloudwatch_metric_alarm.mem.metric_name == "mem_used_percent",
+      aws_cloudwatch_metric_alarm.cpu.metric_name == "cpu_usage_active",
+      aws_cloudwatch_metric_alarm.cpu_credits.metric_name == "CPUCreditBalance",
+    ])
+    error_message = "Alarm metric names: disk_used_percent x2, mem_used_percent, cpu_usage_active, CPUCreditBalance."
+  }
+
+  assert {
+    condition = alltrue([
+      aws_cloudwatch_metric_alarm.disk_root.threshold == 80,
+      aws_cloudwatch_metric_alarm.disk_data.threshold == 80,
+      aws_cloudwatch_metric_alarm.mem.threshold == 90,
+      aws_cloudwatch_metric_alarm.cpu.threshold == 80,
+      aws_cloudwatch_metric_alarm.cpu_credits.threshold == 144,
+    ])
+    error_message = "Alarm thresholds: disk 80, mem 90, cpu 80, credits 144."
+  }
+
+  assert {
+    condition = alltrue([
+      aws_cloudwatch_metric_alarm.disk_root.comparison_operator == "GreaterThanThreshold",
+      aws_cloudwatch_metric_alarm.disk_data.comparison_operator == "GreaterThanThreshold",
+      aws_cloudwatch_metric_alarm.mem.comparison_operator == "GreaterThanThreshold",
+      aws_cloudwatch_metric_alarm.cpu.comparison_operator == "GreaterThanThreshold",
+    ])
+    error_message = "The four agent alarms alarm high (GreaterThanThreshold)."
+  }
+
+  assert {
+    condition = alltrue([
+      aws_cloudwatch_metric_alarm.disk_root.period == 300,
+      aws_cloudwatch_metric_alarm.disk_data.period == 300,
+      aws_cloudwatch_metric_alarm.mem.period == 300,
+      aws_cloudwatch_metric_alarm.cpu.period == 300,
+      aws_cloudwatch_metric_alarm.cpu_credits.period == 300,
+      aws_cloudwatch_metric_alarm.disk_root.evaluation_periods == 3,
+      aws_cloudwatch_metric_alarm.disk_data.evaluation_periods == 3,
+      aws_cloudwatch_metric_alarm.mem.evaluation_periods == 3,
+      aws_cloudwatch_metric_alarm.cpu.evaluation_periods == 3,
+      aws_cloudwatch_metric_alarm.cpu_credits.evaluation_periods == 3,
+    ])
+    error_message = "Every alarm evaluates 3 x 5 min (15 min sustained)."
+  }
+
+  # Dimension literals (path, fstype, cpu) cannot be asserted here: the
+  # dimensions map carries the unknown aws_instance.host.id, which makes
+  # every key access unknown at plan time.
 }
