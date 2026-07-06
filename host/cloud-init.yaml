@@ -87,6 +87,11 @@ write_files:
 
       curl -fsSL -o "$workdir/agent.gpg" "$KEY_URL"
       gpg --import "$workdir/agent.gpg"
+      key_count=$(gpg --with-colons --list-keys | awk -F: '$1 == "pub"' | wc -l)
+      if [ "$key_count" -ne 1 ]; then
+        echo "wkx-install-cwagent: expected exactly 1 imported key, found $key_count" >&2
+        exit 1
+      fi
       fpr=$(gpg --with-colons --fingerprint | awk -F: '$1 == "fpr" { print $10; exit }')
       if [ "$fpr" != "$EXPECTED_FPR" ]; then
         echo "wkx-install-cwagent: key fingerprint mismatch: $fpr" >&2
