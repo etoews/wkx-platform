@@ -1,10 +1,11 @@
 #cloud-config
 # Layer 2 bootstrap for the cloud Host. Rendered by Terraform templatefile();
-# the only template variable is data_volume_device. Changing this file
-# replaces the instance (ADR 0017): the Data volume, and therefore
+# template variables: data_volume_device, agent_config_param. Changing this
+# file replaces the instance (ADR 0017): the Data volume, and therefore
 # /srv/data, survives.
 # Replacement drill exercised: 2026-07-04 (ADR 0017).
 # M3 added: git package and aws-cli snap (deploy-model prerequisites).
+# M4 added: GPG-verified CloudWatch agent install, configured from SSM.
 
 package_update: true
 package_upgrade: true
@@ -67,6 +68,36 @@ write_files:
       fi
       chown platform:platform /srv/data
 
+  - path: /usr/local/bin/wkx-install-cwagent
+    permissions: '0755'
+    content: |
+      #!/usr/bin/env bash
+      # GPG-verified CloudWatch agent install (M4). Key URL and fingerprint
+      # come from the agent's package-signature docs; any mismatch aborts
+      # bootstrap loudly rather than installing anyway.
+      set -euo pipefail
+      KEY_URL='https://amazoncloudwatch-agent.s3.amazonaws.com/assets/amazon-cloudwatch-agent.gpg'
+      DEB_URL='https://amazoncloudwatch-agent-ap-southeast-2.s3.ap-southeast-2.amazonaws.com/ubuntu/arm64/latest/amazon-cloudwatch-agent.deb'
+      EXPECTED_FPR='937616F3450B7D806CBD9725D58167303B789C72'
+
+      workdir=$(mktemp -d)
+      trap 'rm -rf "$workdir"' EXIT
+      export GNUPGHOME="$workdir/gnupg"
+      mkdir -m 700 "$GNUPGHOME"
+
+      curl -fsSL -o "$workdir/agent.gpg" "$KEY_URL"
+      gpg --import "$workdir/agent.gpg"
+      fpr=$(gpg --with-colons --fingerprint | awk -F: '$1 == "fpr" { print $10; exit }')
+      if [ "$fpr" != "$EXPECTED_FPR" ]; then
+        echo "wkx-install-cwagent: key fingerprint mismatch: $fpr" >&2
+        exit 1
+      fi
+
+      curl -fsSL -o "$workdir/agent.deb" "$DEB_URL"
+      curl -fsSL -o "$workdir/agent.deb.sig" "$DEB_URL.sig"
+      gpg --verify "$workdir/agent.deb.sig" "$workdir/agent.deb"
+      dpkg -i "$workdir/agent.deb"
+
 runcmd:
   - [/usr/local/bin/wkx-mount-data]
   - [usermod, -aG, docker, platform]
@@ -76,9 +107,12 @@ runcmd:
   # disable and mask it so the daemon cannot start. Access is SSM only.
   - [sh, -c, 'systemctl disable --now ssh.socket ssh.service 2>/dev/null || true']
   - [systemctl, mask, ssh.socket, ssh.service]
-  - curl -fsSL -o /tmp/amazon-cloudwatch-agent.deb https://amazoncloudwatch-agent-ap-southeast-2.s3.ap-southeast-2.amazonaws.com/ubuntu/arm64/latest/amazon-cloudwatch-agent.deb
-  - dpkg -i /tmp/amazon-cloudwatch-agent.deb
-  - rm -f /tmp/amazon-cloudwatch-agent.deb
+  - [/usr/local/bin/wkx-install-cwagent]
+  # Agent config comes from SSM (M4): the same apply that replaces the Host
+  # publishes the parameter. -s starts the agent and enables its systemd
+  # unit, so it survives reboots. The leading slash is required for
+  # hierarchical parameter names.
+  - [/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl, -a, fetch-config, -m, ec2, -c, 'ssm:${agent_config_param}', -s]
   # Deploy-model prerequisites (M3): the repo checkout needs git (above) and
   # rendering secrets from SSM plus ECR login need the AWS CLI.
   - [snap, install, aws-cli, --classic]

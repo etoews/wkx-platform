@@ -35,6 +35,7 @@ resource "aws_instance" "host" {
 
   user_data = templatefile("${path.module}/../../host/cloud-init.yaml", {
     data_volume_device = local.data_volume_device
+    agent_config_param = aws_ssm_parameter.cloudwatch_agent_config.name
   })
   user_data_replace_on_change = true
 
