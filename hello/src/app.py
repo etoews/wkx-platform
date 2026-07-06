@@ -3,6 +3,7 @@
 Responds 200 to every GET with MESSAGE from the environment, so M5 can
 change the page by setting /wkx/hello/<env>/MESSAGE and redeploying.
 """
+import html
 import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -12,7 +13,9 @@ PORT = 8000
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        body = f"<!doctype html>\n<title>hello</title>\n<h1>{MESSAGE}</h1>\n".encode()
+        # MESSAGE becomes an SSM-driven config knob at M5; escape it so the
+        # page never interprets whatever an operator puts there as markup.
+        body = f"<!doctype html>\n<title>hello</title>\n<h1>{html.escape(MESSAGE)}</h1>\n".encode()
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
