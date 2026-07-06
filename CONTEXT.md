@@ -7,7 +7,7 @@ The shared substrate (host, Caddy, infrastructure, deploy tooling) that runs per
 ### Deployable units and topology
 
 **Platform**:
-The shared substrate this repo builds: host, Caddy, infrastructure, and deploy tooling. The thing projects run *on*.
+The shared substrate this repo builds: host, Caddy, infrastructure, and deploy tooling. The thing projects run *on*. In config, log, and data namespaces, `platform` occupies the `<service>` slot for host-level and substrate emissions (for example `/wkx/platform/<env>`), extending the Platform stack's borrowed `<service>-<env>` shape; no app Service may take the name.
 
 **App**:
 The umbrella term for one project and the service(s) it runs, taken as a whole, at the altitude where the project/service distinction does not matter ("the hello app"). One app is one Project (its repo), which defines one or more Services. Reach for Project or Service when the distinction matters.
@@ -25,7 +25,7 @@ The `<service>-<env>` namespace that isolates one service-env's containers, netw
 Any container block in a `compose.yml`, in Docker's sense of the word, including sidecars such as a Postgres `db`. The platform Service is the main one (the container with the hostname); sidecars are additional Compose services in the same Compose project.
 
 **Platform services**:
-The always-on shared services: Caddy, the CloudWatch agent, and the backup runner. Layer 3 of the stack. Each platform service occupies the `<service>` slot in config and data namespaces (`/wkx/caddy/<env>/...`, `/srv/data/caddy/<env>`) without being a Service: none has a hostname.
+The always-on shared services: Caddy and the backup runner. Layer 3 of the stack. Each platform service occupies the `<service>` slot in config and data namespaces (`/wkx/caddy/<env>/...`, `/srv/data/caddy/<env>`) without being a Service: none has a hostname. The CloudWatch agent is not one: it is Layer 2 host tooling, installed and configured by host bootstrap.
 
 **Platform stack**:
 The platform services' own Compose project, `platform-<env>`, holding every platform service on a Host. Deliberately borrows the `<service>-<env>` shape without naming a Service.

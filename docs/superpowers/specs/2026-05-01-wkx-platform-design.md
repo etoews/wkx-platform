@@ -93,7 +93,7 @@ Four layers, each with one job and a clean interface to the next. Same shape on 
 | # | Layer | Owns | Tool |
 |---|---|---|---|
 | 4 | **Apps** | Per-project Compose service, Dockerfile, Caddy snippet, app code | `wkx-<project>` repos |
-| 3 | **Platform services** | Caddy (TLS + routing), CloudWatch agent, backup runner — always-on shared services | `platform/compose.yml` |
+| 3 | **Platform services** | Caddy (TLS + routing) and the backup runner, the always-on shared services. The CloudWatch agent is Layer 2 host tooling (ADR 0021) | `platform/compose.yml` |
 | 2 | **Host bootstrap** | One-time idempotent host setup: Docker, Compose, agents, mounts | `host/cloud-init.yaml` (AWS), `host/bootstrap.sh` (on-prem) |
 | 1 | **Infrastructure** | AWS account resources + Cloudflare zones/records | `infra/` (Terraform) |
 

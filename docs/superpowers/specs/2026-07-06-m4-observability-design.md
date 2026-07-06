@@ -5,16 +5,16 @@ Status: Approved (ready for implementation planning)
 
 ## 1. Scope
 
-M4 gives the platform eyes: every log a Service or the Host produces lands in CloudWatch under the `/wkx/` namespace, host metrics flow to the `CWAgent` namespace, one dashboard shows the box's vital signs plus per-service request rate, and four alarm types (billing, disk, memory, CPU) email via SNS. Everything is Terraform-managed in the existing `infra/aws/` root, platform account only. Responsibilities split by layer, and each piece does only what it is naturally good at:
+M4 gives the platform eyes: every log a Service or the Host produces lands in CloudWatch under the `/wkx/` namespace, host metrics flow to the `CWAgent` namespace, one dashboard shows the box's vital signs plus per-service request rate, and four alarm types (disk, memory, CPU usage, CPU credit), five alarms in all, email via SNS. Billing alerting is already delivered by the `wkx-org-monthly` budget in `infra/mgmt/`, so M4 adds none. Everything is Terraform-managed in the existing `infra/aws/` root, platform account only. Responsibilities split by layer, and each piece does only what it is naturally good at:
 
 - **Docker daemon (Layer 2)** ships container logs straight to per-service log groups via the `awslogs` log driver, authenticated by the instance role. Dual logging (Docker's default since 20.10) keeps `docker logs` working on the box.
 - **CloudWatch agent (Layer 2, host deb, GPG-verified)** handles host-level concerns only: syslog shipping and CPU, memory, disk, and network metrics.
 - **CloudWatch metric filters** derive request-rate metrics from Caddy's access logs server-side. Nothing extra runs on the box for that.
 
-**Hands-on artefacts** (from `ROADMAP.md`, unchanged):
+**Hands-on artefacts** (from `ROADMAP.md`; the second is amended, see below):
 
 - Tail Caddy and hello logs in the CloudWatch console.
-- Force the billing alarm in test mode; email arrives at the configured address.
+- Force a host alarm in test mode; email arrives at the configured address.
 
 ```mermaid
 flowchart LR
@@ -32,11 +32,8 @@ flowchart LR
         MF["metric filter"]
         Edge["WKX/Edge<br/>RequestCount per service"]
         Dash["dashboard"]
-        HostAlarms["alarms: disk ×2 · memory · CPU"]
-    end
-    subgraph UE1["us-east-1"]
-        Bill["EstimatedCharges<br/>billing alarm"]
-        SNSB["SNS wkx-alerts-billing"]
+        EC2m["AWS/EC2 basics<br/>CPUCreditBalance"]
+        HostAlarms["alarms: disk ×2 · memory<br/>CPU · credit"]
     end
     SNS["SNS wkx-alerts"]
     You(["alert_email inbox"])
@@ -51,14 +48,15 @@ flowchart LR
     Met --> Dash
     Edge --> Dash
     Met --> HostAlarms
+    EC2m --> HostAlarms
     HostAlarms --> SNS --> You
-    Bill --> SNSB --> You
 ```
 
-**ROADMAP amendments.** Two lines of the M4 entry change:
+**ROADMAP amendments.** Three parts of the M4 entry change:
 
 1. "Docker container logs (JSON file driver)" becomes the `awslogs` driver. Docker's JSON log files live under content-addressed container paths (`/var/lib/docker/containers/<container-id>/`), so the agent's path-to-log-group mapping cannot route them per service without a fragile deploy-time shim.
 2. syslog's `/wkx/system/<env>` becomes `/wkx/platform/<env>`. "system" is a token that appears nowhere in the glossary; "platform" already occupies the service slot without naming a Service (the `platform-<env>` Compose project), and the tagging strategy already treats platform as the shared category.
+3. The billing-alarm deliverable and its test-mode artefact go. The wallet guard is the `wkx-org-monthly` budget in `infra/mgmt/` (80% actual and 100% forecasted of USD 45), which landed while M4 was being designed; the artefact becomes forcing a host alarm with `set-alarm-state`, which proves the same SNS-to-email path.
 
 **Spec correction.** Design spec §4 lists the CloudWatch agent as a Layer 3 platform service in `platform/compose.yml`; the §3 architecture diagram draws it accordingly. Reality since M2 is a host deb installed by cloud-init, and the GPG deliverable assumes it stays one: a containerised agent would need `/proc`, `/var/log`, and Docker log-directory host mounts plus elevated privileges, for no functional gain on a single box. M4 corrects the spec: the agent is Layer 2 (host bootstrap). The correction ripples to CONTEXT.md's Platform services entry and is ADR material for the grill.
 
@@ -70,10 +68,11 @@ flowchart LR
 | Cloud-only logging config | `compose.cloud.yml` overlay beside each `compose.yml` | Base compose files stay driver-free so the home server (M9) never sees AWS config. The overlay pair becomes part of the platform contract (M8 reference project). |
 | Agent placement | Host deb, GPG-verified, config via SSM | Matches M2 reality and the roadmap's GPG deliverable; corrects design spec §4. Config changes are a Terraform apply plus SSM RunCommand re-fetch, not a host replacement. |
 | syslog log group | `/wkx/platform/<env>`, not `/wkx/system/<env>` | "platform" is an established token (directory, OS user, `platform-prod` Compose project); "system" appears nowhere in the glossary. Extends the Platform stack's borrow-the-service-slot pattern; glossary records it at the grill. |
-| Billing alarm scope | Platform account only | All spend lives there (the management account runs no workloads); Terraform stays in the existing roots. |
+| Billing alerting | None in M4: the guard is the `wkx-org-monthly` budget (`infra/mgmt/`, management account) | The budget alerts at 80% actual and 100% forecasted of USD 45 and landed mid-design, superseding the brainstorm's platform-account-alarm decision. A duplicate CloudWatch alarm would add an irreversible payer preference, us-east-1 plumbing, and a docs-ambiguous member-account metric for no extra protection. |
 | Retention | Tiered: 7 days app and platform, 30 days Caddy access | Access logs feed the request-rate metric and answer traffic questions after the fact; app and system logs are debugging material. |
 | Request rate | Per-service and total, from one metric filter | The filter extracts the request host as a dimension; the total is metric math in the dashboard. Status-class split deferred until a real need appears. |
-| Alarm set | Billing, disk ×2, memory, CPU | Full protection for a single box; thresholds conservative to avoid noise; all reuse one SNS topic per region. |
+| Alarm set | Disk ×2, memory, CPU usage, CPU credit balance | The Host runs standard CPU credits (`ec2.tf`; the invariant tests assert it), so exhaustion throttles rather than bills: the credit alarm predicts throttling, the usage alarm is the early warning that credits are burning. Five alarms, inside the free ten; all on one SNS topic. |
+| Access-log wiring | One named logger (`log wkx`) in the wildcard site block | Verified on the deployed v2.11.4: covers snippet hosts and the 404 fallthrough. Snippets stay plain host blocks (ADR 0018's spirit). Not plainly documented upstream, so §8 keeps a live check; a future regression shows as a flatlined request-rate widget. |
 | Alert email | `alert_email` variable, no default, value in gitignored `terraform.local.tfvars` | Invariant 7: public files never carry real account state. Same pattern as account IDs. |
 | Metrics namespace | Stays `CWAgent` | The M2 IAM condition already pins it; renaming buys nothing. |
 
@@ -110,27 +109,30 @@ services:
         awslogs-create-group: "false"
         tag: "{{.Name}}"
         mode: non-blocking
+        max-buffer-size: "4m"
 ```
 
-`awslogs-create-group: "false"` makes Terraform ownership of log groups explicit: a deploy against a missing group fails loudly instead of creating an untagged, never-expiring one. `mode: non-blocking` means a CloudWatch outage stalls log delivery, never the app. The home server (M9) simply never applies the overlay; the reference project (M8) inherits the pair as part of the platform contract.
+`awslogs-create-group: "false"` makes Terraform ownership of log groups explicit: a deploy against a missing group fails loudly instead of creating an untagged, never-expiring one. `mode: non-blocking` means a CloudWatch outage stalls log delivery, never the app; the ring buffer is raised from the 1 MB default because AWS's own awslogs guidance warns the default drops lines under burst. The home server (M9) simply never applies the overlay; the reference project (M8) inherits the pair as part of the platform contract.
 
 ### 3.3 Caddy access logs and the request-rate metric
 
-- The wildcard site block in the platform `Caddyfile` gains access logging, JSON format, written to stdout, so it rides the same `awslogs` pipeline into `/wkx/caddy/prod`.
-- A metric filter on `/wkx/caddy/prod` matches access-log lines (logger `http.log.access`) and extracts the request host as a dimension, publishing `RequestCount` to the `WKX/Edge` namespace.
-- Per-service series come straight off the host dimension; the platform total is metric math (SUM) in the dashboard widget. Requests that fall through to the wildcard 404 appear under their own host value, which makes probe traffic visible rather than hidden.
+- The wildcard site block in the platform `Caddyfile` gains a named access logger (`log wkx`), JSON format, written to stdout, so it rides the same `awslogs` pipeline into `/wkx/caddy/prod`. On the deployed v2.11.4, one wildcard-block logger demonstrably covers requests handled by the imported snippet host blocks and by the 404 fallthrough (source-verified and live-tested rather than plainly documented, hence the live check in §8).
+- A metric filter on `/wkx/caddy/prod` matches access-log lines by exact logger name, `{ $.logger = "http.log.access.wkx" }` (unnamed Caddyfile loggers get auto-generated names like `http.log.access.log0`, which could shift if site blocks reorder), and extracts `$.request.host` as the `Host` dimension, publishing `RequestCount` to the `WKX/Edge` namespace.
+- Per-service series come straight off the `Host` dimension; the platform total is metric math (SUM) in the dashboard widget. Requests that fall through to the wildcard 404 appear under their own host value, which makes probe traffic visible rather than hidden.
+- Two documented guardrails hold this design: each distinct `Host` value bills as one custom metric, which is safe here because only hostnames with proxied zone records can reach the origin (bounded; AWS also auto-disables filters that generate 1,000 dimension pairs), and dimensioned filter metrics cannot carry a default value, so zero-traffic minutes emit no datapoint and the dashboard widget fills gaps with metric math (`FILL(m, 0)`).
 
 ## 4. Host changes
 
 ### 4.1 GPG-verified agent install
 
-cloud-init currently curls the agent deb over HTTPS and installs it unverified. M4 replaces that step: download the deb and its `.sig`, import Amazon's published CloudWatch agent signing key, `gpg --verify`, and only then `dpkg -i`. A verification failure aborts bootstrap loudly rather than installing anyway.
+cloud-init currently curls the agent deb over HTTPS and installs it unverified. M4 replaces that step: download the deb and its `.sig` sibling (same URL plus `.sig`; the existing ap-southeast-2 mirror carries both), import Amazon's signing key from `https://amazoncloudwatch-agent.s3.amazonaws.com/assets/amazon-cloudwatch-agent.gpg`, check the fingerprint is exactly `9376 16F3 450B 7D80 6CBD 9725 D581 6730 3B78 9C72` (quoted from the agent's package-signature docs), then `gpg --verify` before `dpkg -i`. Any mismatch aborts bootstrap loudly rather than installing anyway.
 
 ### 4.2 Agent configuration via SSM Parameter Store
 
-- The agent config JSON lives in the repo at `host/cloudwatch-agent.json`: syslog collection into `/wkx/platform/prod`, plus CPU (`usage_active`), memory (`used_percent`), disk (`used_percent` on `/` and `/srv/data`), and network metrics. The metrics namespace stays `CWAgent`, matching the IAM condition pinned in M2.
-- Terraform publishes the file to an SSM parameter, `/wkx/platform/prod/CLOUDWATCH_AGENT_CONFIG`, inside the instance role's existing `/wkx/*` read scope.
-- At boot, cloud-init runs `amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c ssm:/wkx/platform/prod/CLOUDWATCH_AGENT_CONFIG -s`. Later config changes are a Terraform apply plus an SSM RunCommand re-fetch, with no host replacement.
+- The agent config JSON lives in the repo at `host/cloudwatch-agent.json`: syslog collection into `/wkx/platform/prod`, plus aggregate CPU (`usage_active`, `totalcpu` only), memory (`used_percent`), disk (`used_percent` pinned to `/` and `/srv/data`, with `drop_device: true` so Nitro device-name churn cannot break the alarms), and network bytes on the primary interface only (`net.resources` pinned; left unpinned, Docker's churning `veth*` and bridge interfaces would multiply the metric count). `append_dimensions` carries `InstanceId` alone. Net result: six custom metrics. The namespace stays `CWAgent`, matching the IAM condition pinned in M2.
+- Terraform publishes the file to an SSM parameter, `/wkx/platform/prod/CLOUDWATCH_AGENT_CONFIG` (type String: the config is not a secret, and at roughly 2 KB it sits well inside the free 4 KB standard tier), inside the instance role's existing `/wkx/*` read scope.
+- At boot, cloud-init runs `amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c ssm:/wkx/platform/prod/CLOUDWATCH_AGENT_CONFIG -s`. The leading slash is required for hierarchical parameter names, and `-s` also enables the agent's systemd unit, so it survives reboots. Later config changes are a Terraform apply plus an SSM RunCommand re-fetch, with no host replacement.
+- Because the metrics carry the `InstanceId` dimension and the Host is cattle (ADR 0017), the CWAgent-metric alarms take their dimension from `aws_instance.host.id` in the same root: the apply that replaces the Host re-points the alarms in the same plan.
 
 ### 4.3 Planned host replacement
 
@@ -140,20 +142,20 @@ Changing cloud-init replaces the Host (ADR 0017). M4 therefore includes one plan
 
 ### 5.1 SNS
 
-One `wkx-alerts` topic in `ap-southeast-2` with an email subscription. The address is the `alert_email` Terraform variable with no default; the real value lives in gitignored `terraform.local.tfvars` (invariant 7). Billing metrics only exist in `us-east-1`, and alarm actions must target a topic in their own region, so a provider alias creates a sibling `wkx-alerts-billing` topic there. Email subscriptions need one manual confirmation click each; the state doc records both confirmations.
+One `wkx-alerts` topic in `ap-southeast-2` with an email subscription. The address is the `alert_email` Terraform variable with no default; the real value lives in gitignored `terraform.local.tfvars` (invariant 7), the same variable name and pattern `infra/mgmt/` already uses for its budget notifications. The email subscription needs one manual confirmation click; the state doc records it.
 
-### 5.2 The four alarm types
+### 5.2 The alarms
 
 | Alarm | Metric | Threshold |
 |---|---|---|
-| Billing | `EstimatedCharges` (us-east-1) | ≥ USD 24 (80% of the NZD 50 monthly budget) |
 | Disk ×2 | `disk_used_percent` on `/` and `/srv/data` | > 80% for 15 min |
 | Memory | `mem_used_percent` | > 90% for 15 min |
-| CPU | `cpu_usage_active` | > 80% for 15 min |
+| CPU usage | `cpu_usage_active` | > 80% for 15 min |
+| CPU credit | `CPUCreditBalance` (`AWS/EC2` basic monitoring, free, 5-min datapoints) | < 144 for 15 min (25% of the t4g.medium's 576-credit bank) |
 
-Thresholds are deliberately conservative to avoid noise and are one-line Terraform changes to tune. On a burstable t4g the CPU alarm doubles as a cost guard: sustained bursts bill as surplus credits.
+Thresholds are deliberately conservative to avoid noise and are one-line Terraform changes to tune. The Host runs standard CPU credits (`ec2.tf`; the invariant tests assert it), so an empty credit bank throttles the box to its 20%-per-vCPU baseline rather than billing surplus: the credit alarm predicts that cliff, and the usage alarm is the early warning that the bank is draining. Five alarms in total, within the ten free.
 
-**Prerequisite:** member-account billing metrics require "Receive Billing Alerts" enabled once in the management account's Billing console. A manual step, documented in the M4 state doc; the plan gates on verifying the metric actually appears in the platform account.
+**Billing:** M4 adds no CloudWatch billing alarm. The wallet guard is the `wkx-org-monthly` budget in `infra/mgmt/` (80% actual and 100% forecasted of USD 45, emailing the same address). A duplicate alarm would have bought an irreversible payer-account preference ("Receive CloudWatch Billing Alerts"), cross-region SNS plumbing, and a docs-ambiguous member-account metric for no extra protection.
 
 ## 6. Dashboard
 
@@ -167,11 +169,10 @@ All in the aws root (`infra/aws/`) unless noted, file-per-concern matching the r
 |---|---|
 | `logs.tf` (new) | Three `aws_cloudwatch_log_group` resources with retention and tags; the `aws_cloudwatch_log_metric_filter` publishing `RequestCount` to `WKX/Edge`. |
 | `cloudwatch_agent.tf` (new) | `aws_ssm_parameter` `/wkx/platform/prod/CLOUDWATCH_AGENT_CONFIG` from `file("../../host/cloudwatch-agent.json")`. |
-| `sns.tf` (new) | `wkx-alerts` topic + email subscription; `wkx-alerts-billing` sibling in us-east-1 via the provider alias. |
-| `alarms.tf` (new) | Disk ×2, memory, CPU alarms on `CWAgent` metrics; billing alarm on `EstimatedCharges` under the aliased provider. |
+| `sns.tf` (new) | `wkx-alerts` topic + email subscription. |
+| `alarms.tf` (new) | Disk ×2, memory, CPU alarms on `CWAgent` metrics (dimensions wired to `aws_instance.host.id`); the `CPUCreditBalance` alarm on `AWS/EC2`. |
 | `dashboard.tf` (new) | `aws_cloudwatch_dashboard`, widget JSON via `jsonencode`. |
-| `providers.tf` (edit) | `us-east-1` provider alias, same `default_tags` shape. |
-| `variables.tf` (edit) | `alert_email`, no default, format validation. |
+| `variables.tf` (edit) | `alert_email`, no default, format validation; same name and local-tfvars pattern as `infra/mgmt/`. |
 | `iam.tf` (comment edit) | The "created by Terraform in M4" comments come true; no policy change (namespace stays `CWAgent`, log scope `/wkx/*` already covers the groups). |
 | `tests/` (edit) | New invariants: every log group has a retention policy and correct tags; every alarm has at least one action; the dashboard exists; the agent-config parameter is sourced from the repo file. |
 | `host/cloud-init.yaml` (edit) | GPG-verified agent install; `fetch-config` from SSM at boot. Applying replaces the Host (ADR 0017). |
@@ -182,13 +183,11 @@ All in the aws root (`infra/aws/`) unless noted, file-per-concern matching the r
 
 **Plan-time invariants** (extending the existing test files): the new `tests/` assertions in §7, and the existing invariants keep passing.
 
-**Plan gates** (facts to confirm against current docs before the relevant task, in the M3 "Task 1 gate" style):
+**Plan gates** (live checks at the relevant task, in the M3 "Task 1 gate" style; the draft spec's doc-verification gates were closed during the grill and their outcomes folded into §3, §4, and §5):
 
-- Exact source and fingerprint of Amazon's CloudWatch agent GPG key, from the CloudWatch agent documentation.
-- Caddy access-log directive specifics (site-block `log` with JSON to stdout) against current Caddy docs.
-- The billing metric appears in the platform account once "Receive Billing Alerts" is enabled in the management account.
-- Custom-metric count the agent config produces versus the always-free tier of 10; trim the collected set if it overshoots.
-- Whether the t4g's credit mode (standard vs unlimited) argues for a `CPUCreditBalance` alarm alongside the CPU alarm; default position is the CPU alarm only.
+- `docker compose -f compose.yml -f compose.cloud.yml config` renders the merged logging stanza as intended before first deploy (the `logging:` merge rule is verified from compose-go source, not docs).
+- After the Caddyfile change, access-log lines appear in `/wkx/caddy/prod` for both a snippet-routed host (hello) and an unmatched 404 host, confirming the wildcard-block logger covers imported host blocks on the running version.
+- The custom-metric count in the CloudWatch console matches the expected six agent metrics plus one `RequestCount` per live hostname.
 
 **Live verification** after deploy:
 
@@ -198,23 +197,23 @@ aws logs tail /wkx/caddy/prod --follow          # access + runtime lines appear
 aws logs tail /wkx/hello/prod --follow          # hello stdout appears
 for i in $(seq 1 20); do curl -s -o /dev/null https://hello.wingkongexchange.dev; done
                                                 # request-rate widget moves within a period
-aws cloudwatch set-alarm-state --alarm-name <billing-alarm> \
-  --state-value ALARM --state-reason "M4 test"  # email arrives (us-east-1)
+aws cloudwatch set-alarm-state --alarm-name <disk-alarm> \
+  --state-value ALARM --state-reason "M4 test"  # email arrives
 ```
 
 On the box: `amazon-cloudwatch-agent-ctl -a status` reports running; `docker logs` still works for both stacks (dual logging); the GPG verification is visible in `/var/log/cloud-init-output.log`.
 
 ## 9. Cost
 
-Expected steady-state addition is roughly USD 1 to 2 per month, dominated by log ingest (the design spec's cost table already carries USD 0.70 for that). Custom metrics and alarms sit inside or near the always-free tier (10 custom metrics, 10 alarms, 3 dashboards); a plan gate counts the exact metric set.
+Effectively zero additional cost at current scale: the always-free tier covers 5 GB of log ingest (the platform's roughly 1 GB), 10 custom metrics (six agent metrics plus one `RequestCount` per hostname), 10 alarm metrics (five used), and 3 dashboards (one used). Costs appear as the fleet grows: each new service adds a `RequestCount` metric and log volume, at USD 0.30 per metric and USD 0.50 per GB ingested in the first paid tiers. The design spec's cost table already carries USD 0.70 for logs, so steady state stays inside existing estimates.
 
 ## 10. Documentation updates in M4
 
-- `ROADMAP.md`: the two M4 amendments (§1).
+- `ROADMAP.md`: the three M4 amendments (§1).
 - Design spec: §4 moves the CloudWatch agent from Layer 3 to Layer 2; the §3 diagram follows.
-- `CONTEXT.md`: Platform services entry drops the CloudWatch agent (leaving Caddy and the backup runner) and records that platform occupies the service slot for host-level emissions (`/wkx/platform/<env>`). Grill-owned.
+- `CONTEXT.md`: Platform services entry drops the CloudWatch agent (leaving Caddy and the backup runner) and the Platform entry records that platform occupies the service slot for host-level emissions (`/wkx/platform/<env>`). Delivered during the grill.
 - ADR candidates (grill-owned): container logs ship via the Docker `awslogs` driver; the CloudWatch agent is Layer 2 host tooling, not a platform service.
-- `docs/setup/m4-infra-state.md` (public-safe template) plus gitignored `.local.md` sibling: alarm names, dashboard name, subscription confirmations, the Receive Billing Alerts manual step.
+- `docs/setup/m4-infra-state.md` (public-safe template) plus gitignored `.local.md` sibling: alarm names, dashboard name, the SNS subscription confirmation.
 - `CLAUDE.md` repository-state paragraph: observability now live.
 
 ## 11. Out of scope

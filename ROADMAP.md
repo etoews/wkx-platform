@@ -97,19 +97,19 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 ## M4 · Observability — Size: M
 
 **Deliverables**
-- CloudWatch agent config ships:
-  - syslog → `/wkx/system/<env>`
-  - Docker container logs (JSON file driver) → `/wkx/<service>/<env>`
+- CloudWatch agent config ships (the agent is Layer 2 host tooling, ADR 0021):
+  - syslog → `/wkx/platform/<env>` (platform occupies the service slot for host-level emissions; decided at M4)
   - host metrics: CPU, memory, disk, network
+- Docker container logs → `/wkx/<service>/<env>` via the `awslogs` log driver in cloud-only `compose.cloud.yml` overlays (ADR 0020; agent-tailed JSON files cannot be routed per service).
 - One log group per service, created by Terraform.
 - CloudWatch dashboard: CPU, memory, disk, network, request rate (from Caddy access logs).
-- Billing alarm at 80% of NZD $50 (≈ USD $24).
-  - Note (2026-07-05): partly covered already. `infra/mgmt/` manages a `wkx-org-monthly` budget in the management (payer) account alerting at 80% actual / 100% forecasted of USD $45 (burn-in level). If M4 still wants the CloudWatch alarm, billing metrics live in the payer account (us-east-1 only), and the budgets-only `wkx-budgets` IdC permission set behind `infra/mgmt/` will need CloudWatch + SNS actions added; that permission set edit is a one-time console change.
+- Host alarms: disk ×2, memory, CPU usage, CPU credit balance.
+  - No CloudWatch billing alarm (decided at the M4 grill, 2026-07-06): the wallet guard is the `wkx-org-monthly` budget in `infra/mgmt/` (80% actual / 100% forecasted of USD $45), which avoids the irreversible payer-account billing-alerts preference and cross-region SNS plumbing that a member-account alarm would need.
 - Verify the CloudWatch agent deb against its published GPG signature before install (M2 installs it unverified over HTTPS).
 
 **Hands-on artifact**
 - Tail Caddy and hello logs in the CloudWatch console.
-- Force the billing alarm in test mode → email arrives at the configured address.
+- Force a host alarm in test mode → email arrives at the configured address.
 
 ---
 
