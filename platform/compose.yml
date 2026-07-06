@@ -1,5 +1,6 @@
 # The Platform stack (CONTEXT.md): platform services on one Host.
-# Run as: docker compose -p platform-prod up -d
+# Run as: docker compose -f compose.yml -f compose.cloud.yml -p platform-prod up -d
+# (cloud; the home server omits the overlay, ADR 0020)
 # ECR_REGISTRY and CADDY_TAG come from a gitignored .env beside this file,
 # written at deploy time; ${VAR:?} makes missing values a hard error.
 services:

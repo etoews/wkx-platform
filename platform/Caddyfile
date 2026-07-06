@@ -6,6 +6,15 @@
 	tls {
 		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
 	}
+	# Access logs (M4): a named logger, so the metric filter exact-matches
+	# http.log.access.wkx (auto-generated names like log0 shift if site
+	# blocks reorder). JSON to stdout rides the awslogs pipeline; Caddy's
+	# runtime logs stay on stderr. One logger here covers the imported
+	# snippet hosts and the 404 fallthrough (verified on v2.11.4).
+	log wkx {
+		output stdout
+		format json
+	}
 	# Subdomains with no snippet fall through to here.
 	respond 404
 }

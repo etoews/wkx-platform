@@ -1,0 +1,15 @@
+# Cloud overlay (ADR 0020): container logs ship to CloudWatch via the
+# awslogs driver, authenticated by the instance role. Dual logging keeps
+# `docker logs` working. The home server (M9) never applies this file.
+# Run as: docker compose -f compose.yml -f compose.cloud.yml -p platform-prod up -d
+services:
+  caddy:
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ap-southeast-2
+        awslogs-group: /wkx/caddy/prod
+        awslogs-create-group: "false"
+        tag: "{{.Name}}"
+        mode: non-blocking
+        max-buffer-size: "4m"

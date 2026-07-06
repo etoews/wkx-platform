@@ -1,0 +1,14 @@
+# Cloud overlay (ADR 0020): see platform/compose.cloud.yml. Part of the
+# platform contract from M8's reference project on.
+# Run as: ENV=prod docker compose -f compose.yml -f compose.cloud.yml -p hello-prod up -d
+services:
+  web:
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ap-southeast-2
+        awslogs-group: /wkx/hello/prod
+        awslogs-create-group: "false"
+        tag: "{{.Name}}"
+        mode: non-blocking
+        max-buffer-size: "4m"

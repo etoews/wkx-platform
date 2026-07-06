@@ -1,6 +1,7 @@
 # hello: one Service, joining the Edge network with the <service>-<env>
 # alias Caddy proxies to (ADR 0019).
-# Run as: ENV=prod docker compose -p hello-prod up -d  (env always explicit)
+# Run as: ENV=prod docker compose -f compose.yml -f compose.cloud.yml -p hello-prod up -d
+# (env always explicit; cloud applies the awslogs overlay, home omits it)
 services:
   web:
     image: ${ECR_REGISTRY:?}/wkx/hello:${HELLO_TAG:?}
