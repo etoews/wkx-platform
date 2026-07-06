@@ -1,3 +1,7 @@
+variables {
+  alert_email = "alerts@example.invalid"
+}
+
 # Encodes the non-negotiable SG invariants (CLAUDE.md invariants 2 and 3) as checks.
 #
 # Invariant 2 (no SSH; HTTPS-only) is asserted here at PLAN time: from_port, to_port,

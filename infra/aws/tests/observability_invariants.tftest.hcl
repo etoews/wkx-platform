@@ -1,3 +1,7 @@
+variables {
+  alert_email = "alerts@example.invalid"
+}
+
 # Observability invariants (M4): Terraform owns every /wkx log group, each
 # with explicit retention (a group created any other way would be untagged
 # and never-expiring), and the request-rate pipeline publishes to WKX/Edge.
@@ -67,5 +71,19 @@ run "agent_config_from_repo_file" {
   assert {
     condition     = nonsensitive(aws_ssm_parameter.cloudwatch_agent_config.value) == file("../../host/cloudwatch-agent.json")
     error_message = "The parameter value must be exactly the repo file."
+  }
+}
+
+run "alerts_topic" {
+  command = plan
+
+  assert {
+    condition     = aws_sns_topic.alerts.name == "wkx-alerts"
+    error_message = "The notification topic is wkx-alerts."
+  }
+
+  assert {
+    condition     = aws_sns_topic_subscription.alerts_email.protocol == "email"
+    error_message = "wkx-alerts must have an email subscription."
   }
 }

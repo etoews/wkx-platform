@@ -1,3 +1,7 @@
+variables {
+  alert_email = "alerts@example.invalid"
+}
+
 # Encodes the Host invariants as plan-time checks:
 # IMDSv2, standard CPU credits, encrypted gp3 volumes, and the
 # replaceable-Host / durable-Data-volume stance (ADR 0017).

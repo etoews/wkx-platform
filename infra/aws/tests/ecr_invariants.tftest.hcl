@@ -1,3 +1,7 @@
+variables {
+  alert_email = "alerts@example.invalid"
+}
+
 # Image repos hold content-addressed <sha> tags: immutability makes a tag a
 # permanent name for one image, and scan-on-push is free table stakes.
 run "ecr_repos_are_immutable_and_scanned" {
