@@ -1,0 +1,485 @@
+<title>WKX M4 · Observability Design</title>
+<style>
+  :root {
+    --paper: #F5F7F9;
+    --panel: #FFFFFF;
+    --ink: #24313F;
+    --ink-2: #5D6E7E;
+    --line: #D9E0E7;
+    --accent: #B45309;
+    --accent-ink: #8A3E06;
+    --accent-soft: #F9EFDF;
+    --steel: #2F617F;
+    --mono-bg: #ECF0F4;
+    --ok: #2E7D57;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #141B23;
+      --panel: #1C2530;
+      --ink: #E2E9EF;
+      --ink-2: #94A4B4;
+      --line: #2D3A48;
+      --accent: #E5A344;
+      --accent-ink: #EDB25C;
+      --accent-soft: #2B2418;
+      --steel: #82B2CF;
+      --mono-bg: #243040;
+      --ok: #63BF92;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #141B23;
+    --panel: #1C2530;
+    --ink: #E2E9EF;
+    --ink-2: #94A4B4;
+    --line: #2D3A48;
+    --accent: #E5A344;
+    --accent-ink: #EDB25C;
+    --accent-soft: #2B2418;
+    --steel: #82B2CF;
+    --mono-bg: #243040;
+    --ok: #63BF92;
+  }
+  :root[data-theme="light"] {
+    --paper: #F5F7F9;
+    --panel: #FFFFFF;
+    --ink: #24313F;
+    --ink-2: #5D6E7E;
+    --line: #D9E0E7;
+    --accent: #B45309;
+    --accent-ink: #8A3E06;
+    --accent-soft: #F9EFDF;
+    --steel: #2F617F;
+    --mono-bg: #ECF0F4;
+    --ok: #2E7D57;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.55;
+    margin: 0;
+    padding: 0 1.25rem 5rem;
+    font-size: 16px;
+  }
+  .sheet { max-width: 46rem; margin: 0 auto; }
+
+  h1, h2 {
+    font-family: ui-serif, "New York", Georgia, "Times New Roman", serif;
+    text-wrap: balance;
+    line-height: 1.2;
+  }
+  h1 { font-size: 2.1rem; font-weight: 600; margin: 0.5rem 0 0.75rem; }
+  h2 { font-size: 1.45rem; font-weight: 600; margin: 0 0 0.9rem; }
+  h3 {
+    font-size: 0.98rem; font-weight: 650; margin: 1.6rem 0 0.5rem;
+    letter-spacing: 0.01em;
+  }
+  p { margin: 0 0 0.9rem; max-width: 65ch; }
+  ul, ol { margin: 0 0 1rem; padding-left: 1.3rem; max-width: 62ch; }
+  li { margin-bottom: 0.35rem; }
+  li::marker { color: var(--ink-2); }
+
+  code, .mono {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.86em;
+  }
+  code {
+    background: var(--mono-bg);
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  pre {
+    background: var(--mono-bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 0.85rem 1rem;
+    overflow-x: auto;
+    margin: 0 0 1rem;
+  }
+  pre code { background: none; padding: 0; white-space: pre; }
+
+  .eyebrow {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    margin: 0 0 0.4rem;
+  }
+  header.masthead {
+    padding: 3rem 0 1.5rem;
+    border-bottom: 2px solid var(--ink);
+    margin-bottom: 1.5rem;
+  }
+  .masthead .sub { color: var(--ink-2); max-width: 60ch; margin-bottom: 0; }
+
+  .decisions {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 1.1rem 1.25rem 1.15rem;
+    margin: 1.5rem 0 2.5rem;
+  }
+  .decisions .eyebrow { color: var(--ink-2); margin-bottom: 0.65rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+  .chip {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.76rem;
+    padding: 0.28em 0.7em;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--paper);
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .chip b { color: var(--accent-ink); font-weight: 650; }
+
+  section.design {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1.8rem 2rem 1.4rem;
+    margin-bottom: 2rem;
+  }
+  @media (max-width: 640px) { section.design { padding: 1.3rem 1.1rem 1rem; } }
+
+  .callout {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    border-radius: 0 6px 6px 0;
+    padding: 0.75rem 1rem;
+    margin: 1.1rem 0;
+    max-width: none;
+  }
+  .callout p { margin: 0; max-width: none; }
+  .callout .tag {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+
+  .tablewrap { overflow-x: auto; margin: 0 0 1rem; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.92rem;
+    font-variant-numeric: tabular-nums;
+  }
+  th {
+    text-align: left;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    font-weight: 600;
+    padding: 0.45rem 1rem 0.45rem 0;
+    border-bottom: 1.5px solid var(--ink);
+    white-space: nowrap;
+  }
+  td {
+    padding: 0.5rem 1rem 0.5rem 0;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+
+  .flowwrap { overflow-x: auto; margin: 1.25rem 0 0.5rem; }
+  .flow {
+    display: grid;
+    grid-template-columns: 1fr 2rem 1fr 2rem 1.2fr;
+    gap: 0.6rem 0;
+    align-items: stretch;
+    min-width: 640px;
+  }
+  .flow .colhead {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    padding-bottom: 0.2rem;
+  }
+  .node {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--paper);
+    padding: 0.55rem 0.75rem;
+    font-size: 0.85rem;
+  }
+  .node .t { font-weight: 650; display: block; margin-bottom: 0.15rem; }
+  .node .d { color: var(--ink-2); font-size: 0.8rem; display: block; }
+  .node.dest { border-color: var(--steel); }
+  .arrow {
+    display: flex; align-items: center; justify-content: center;
+    color: var(--ink-2); font-size: 1rem;
+  }
+  .flow .spacer { grid-column: 1 / -1; height: 0.15rem; }
+  .consumers {
+    margin-top: 0.8rem;
+    border-top: 1px dashed var(--line);
+    padding-top: 0.8rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    align-items: center;
+    font-size: 0.85rem;
+  }
+  .consumers .node { flex: 0 1 auto; }
+  .consumers .arrow { flex: 0 0 auto; }
+  .consumers .node.alarmish { border-color: var(--accent); }
+
+  a { color: var(--steel); text-underline-offset: 2px; }
+  a:focus-visible, .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .footnote { color: var(--ink-2); font-size: 0.85rem; max-width: 65ch; }
+  .approve {
+    margin-top: 1.4rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--line);
+    color: var(--ink-2);
+    font-size: 0.88rem;
+    font-style: italic;
+  }
+</style>
+
+<div class="sheet">
+  <header class="masthead">
+    <p class="eyebrow">WKX Platform · Milestone 4 · For review</p>
+    <h1>Observability</h1>
+    <p class="sub">Every log a Service or the Host produces lands in CloudWatch under <code>/wkx/</code>, host metrics flow to the <code>CWAgent</code> namespace, one dashboard shows the box's vital signs and per-service request rate, and four alarm types email you via SNS. All of it Terraform-managed in <code>infra/aws/</code>, platform account only.</p>
+  </header>
+
+  <div class="decisions">
+    <p class="eyebrow">Decisions locked in during brainstorming</p>
+    <div class="chips">
+      <span class="chip">billing scope · <b>platform account only</b></span>
+      <span class="chip">retention · <b>tiered 7d / 30d</b></span>
+      <span class="chip">request rate · <b>per-service + total</b></span>
+      <span class="chip">alarms · <b>billing + disk + memory + CPU</b></span>
+      <span class="chip">log pipeline · <b>awslogs driver + host-deb agent</b></span>
+      <span class="chip">alert email · <b>gitignored tfvars, never committed</b></span>
+    </div>
+  </div>
+
+  <section class="design" id="s1">
+    <p class="eyebrow">Section 1 / 4</p>
+    <h2>Scope and shape</h2>
+    <p>M4 gives the platform eyes. Responsibilities split cleanly by layer, and each piece does only what it is naturally good at:</p>
+    <ul>
+      <li><strong>Docker daemon (Layer 2)</strong> ships container logs straight to per-service log groups via the <code>awslogs</code> log driver, authenticated by the instance role. Dual logging (Docker's default since 20.10) keeps <code>docker logs</code> working on the box.</li>
+      <li><strong>CloudWatch agent (Layer 2, host deb, GPG-verified)</strong> handles host-level concerns only: syslog shipping and CPU, memory, disk, and network metrics.</li>
+      <li><strong>CloudWatch metric filters</strong> derive request-rate metrics from Caddy's access logs server-side. Nothing extra runs on the box.</li>
+    </ul>
+
+    <div class="flowwrap">
+      <div class="flow">
+        <span class="colhead">On the box</span>
+        <span></span>
+        <span class="colhead">Shipper</span>
+        <span></span>
+        <span class="colhead">In CloudWatch</span>
+
+        <div class="node"><span class="t">hello, caddy containers</span><span class="d">stdout / stderr</span></div>
+        <div class="arrow">→</div>
+        <div class="node"><span class="t">Docker daemon</span><span class="d mono">awslogs driver</span></div>
+        <div class="arrow">→</div>
+        <div class="node dest"><span class="t mono">/wkx/hello/prod</span><span class="t mono">/wkx/caddy/prod</span></div>
+
+        <div class="spacer"></div>
+
+        <div class="node"><span class="t">Host</span><span class="d">syslog · /proc · disks</span></div>
+        <div class="arrow">→</div>
+        <div class="node"><span class="t">CloudWatch agent</span><span class="d">host deb, GPG-verified</span></div>
+        <div class="arrow">→</div>
+        <div class="node dest"><span class="t mono">/wkx/platform/prod</span><span class="d mono">CWAgent metrics</span></div>
+
+        <div class="spacer"></div>
+
+        <div class="node dest"><span class="t mono">/wkx/caddy/prod</span><span class="d">access log lines</span></div>
+        <div class="arrow">→</div>
+        <div class="node"><span class="t">Metric filter</span><span class="d">server-side, free</span></div>
+        <div class="arrow">→</div>
+        <div class="node dest"><span class="t mono">WKX/Edge</span><span class="d">RequestCount per service</span></div>
+      </div>
+      <div class="consumers">
+        <div class="node"><span class="t">Dashboard</span><span class="d">CPU · mem · disk · net · requests</span></div>
+        <div class="node alarmish"><span class="t">Alarms ×4</span><span class="d">billing · disk · memory · CPU</span></div>
+        <div class="arrow">→</div>
+        <div class="node alarmish"><span class="t mono">SNS wkx-alerts</span><span class="d">email subscription</span></div>
+        <div class="arrow">→</div>
+        <div class="node"><span class="t">You</span><span class="d">inbox</span></div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <span class="tag">Spec correction</span>
+      <p>Design spec §4 lists the CloudWatch agent as a Layer 3 platform service in <code>platform/compose.yml</code>. Reality since M2 is a host deb installed by cloud-init, and the M4 GPG deliverable assumes it stays one. M4 corrects the spec: the agent is Layer 2 (host bootstrap). The correction ripples to the CONTEXT.md "Platform services" entry and is ADR material for the grill.</p>
+    </div>
+
+    <div class="callout">
+      <span class="tag">Roadmap amendment</span>
+      <p>Two lines change. "Docker container logs (JSON file driver)" becomes the <code>awslogs</code> driver: Docker's JSON log files live under content-addressed container paths, so the agent's path-to-log-group mapping cannot route them per service without a fragile deploy-time shim. And syslog's <code>/wkx/system/&lt;env&gt;</code> becomes <code>/wkx/platform/&lt;env&gt;</code>: "system" is a token that appears nowhere in the glossary, while "platform" already occupies the service slot without naming a Service (the <code>platform-&lt;env&gt;</code> Compose project), and the tagging strategy already treats "platform" as the shared category.</p>
+    </div>
+
+    <p><strong>Out of scope:</strong> the home server (M9 decides what observability at home means; cloud-only config stays out of the base compose files so home stays clean), log-based alerting on app errors, tracing, and any third-party observability stack.</p>
+
+    <p class="approve">Approve section 1?</p>
+  </section>
+
+  <section class="design" id="s2">
+    <p class="eyebrow">Section 2 / 4</p>
+    <h2>Log pipeline</h2>
+
+    <h3>Log groups, created by Terraform</h3>
+    <div class="tablewrap">
+      <table>
+        <tr><th>Log group</th><th>Source</th><th>Retention</th><th>Tags</th></tr>
+        <tr>
+          <td><code>/wkx/hello/prod</code></td>
+          <td>hello container via <code>awslogs</code></td>
+          <td>7 days</td>
+          <td class="mono">Env=prod, Service=hello</td>
+        </tr>
+        <tr>
+          <td><code>/wkx/caddy/prod</code></td>
+          <td>Caddy runtime + JSON access logs via <code>awslogs</code></td>
+          <td>30 days</td>
+          <td class="mono">Env=prod, Service=caddy</td>
+        </tr>
+        <tr>
+          <td><code>/wkx/platform/prod</code></td>
+          <td>Host syslog via CloudWatch agent</td>
+          <td>7 days</td>
+          <td class="mono">Env=prod</td>
+        </tr>
+      </table>
+    </div>
+    <p class="footnote">Caddy's 30-day tier exists because access logs feed the request-rate metric and answer traffic questions after the fact. Streams are named by container via the driver's <code>tag: "{{.Name}}"</code> option.</p>
+
+    <h3>Compose overlay, not base-file changes</h3>
+    <p>The logging stanza is cloud-only, so it lives in a <code>compose.cloud.yml</code> overlay beside each <code>compose.yml</code> (<code>platform/</code> and <code>hello/</code>). Cloud deploys run:</p>
+    <pre><code>docker compose -f compose.yml -f compose.cloud.yml -p hello-prod up -d</code></pre>
+    <p>The overlay adds, per Compose service:</p>
+    <pre><code>logging:
+  driver: awslogs
+  options:
+    awslogs-region: ap-southeast-2
+    awslogs-group: /wkx/hello/prod
+    awslogs-create-group: "false"
+    tag: "{{.Name}}"
+    mode: non-blocking</code></pre>
+    <p>Base compose files stay driver-free, so the home server (M9) simply never applies the overlay. The reference project (M8) inherits the same pair, making the overlay part of the platform contract.</p>
+
+    <h3>Caddy access logs and the request-rate metric</h3>
+    <ul>
+      <li>The wildcard site block in the platform <code>Caddyfile</code> gains access logging, JSON format, written to stdout, so it rides the same <code>awslogs</code> pipeline into <code>/wkx/caddy/prod</code>.</li>
+      <li>A metric filter on <code>/wkx/caddy/prod</code> matches access-log lines (logger <code>http.log.access</code>) and extracts the request host as a dimension, publishing <code>RequestCount</code> to the <code>WKX/Edge</code> namespace.</li>
+      <li>Per-service series come straight off the host dimension; the platform total is metric math (SUM) in the dashboard widget. Requests that fall through to the wildcard 404 appear under their own host value, which makes probe traffic visible rather than hidden.</li>
+    </ul>
+
+    <p class="approve">Approve section 2?</p>
+  </section>
+
+  <section class="design" id="s3">
+    <p class="eyebrow">Section 3 / 4</p>
+    <h2>Host changes</h2>
+
+    <h3>GPG-verified agent install</h3>
+    <p>cloud-init currently curls the agent deb over HTTPS and installs it unverified. M4 replaces that with: download the deb and its <code>.sig</code>, import Amazon's published CloudWatch agent signing key, <code>gpg --verify</code>, and only then <code>dpkg -i</code>. A verification failure aborts bootstrap loudly rather than installing anyway.</p>
+
+    <h3>Agent configuration via SSM Parameter Store</h3>
+    <ul>
+      <li>The agent config JSON lives in the repo at <code>host/cloudwatch-agent.json</code>: syslog collection into <code>/wkx/platform/prod</code>, plus CPU (<code>usage_active</code>), memory (<code>used_percent</code>), disk (<code>used_percent</code> on <code>/</code> and <code>/srv/data</code>), and network metrics. The metrics namespace stays <code>CWAgent</code>, matching the IAM condition pinned in M2.</li>
+      <li>Terraform publishes the file to an SSM parameter (proposed: <code>/wkx/platform/prod/CLOUDWATCH_AGENT_CONFIG</code>, inside the instance role's existing <code>/wkx/*</code> read scope).</li>
+      <li>At boot, cloud-init runs <code>amazon-cloudwatch-agent-ctl -a fetch-config -c ssm:&lt;param&gt; -s</code>. Config changes later are a Terraform apply plus an SSM RunCommand re-fetch, with no host replacement.</li>
+    </ul>
+
+    <div class="callout">
+      <span class="tag">Planned host replacement</span>
+      <p>Changing cloud-init replaces the Host (ADR 0017). M4 therefore includes one planned instance replacement, done first so everything else lands on the new box. The Data volume and Caddy's certificates survive; the platform stack and hello are redeployed after, per the M3 state doc. The replacement drill was exercised in M2.</p>
+    </div>
+
+    <p class="approve">Approve section 3?</p>
+  </section>
+
+  <section class="design" id="s4">
+    <p class="eyebrow">Section 4 / 4</p>
+    <h2>Alarms, dashboard, and repo changes</h2>
+
+    <h3>SNS and email</h3>
+    <p>One <code>wkx-alerts</code> topic in <code>ap-southeast-2</code> with an email subscription. The address is a Terraform variable with no default; the real value lives in gitignored <code>terraform.local.tfvars</code> (invariant 7). Billing metrics only exist in <code>us-east-1</code>, and alarm actions must target a topic in their own region, so a provider alias creates a sibling <code>wkx-alerts-billing</code> topic there. Email subscriptions need one manual confirmation click each.</p>
+
+    <h3>The four alarm types</h3>
+    <div class="tablewrap">
+      <table>
+        <tr><th>Alarm</th><th>Metric</th><th>Threshold</th></tr>
+        <tr>
+          <td>Billing</td>
+          <td><code>EstimatedCharges</code> (us-east-1)</td>
+          <td>≥ USD 24 (80% of the NZD 50 budget)</td>
+        </tr>
+        <tr>
+          <td>Disk ×2</td>
+          <td><code>disk_used_percent</code> on <code>/</code> and <code>/srv/data</code></td>
+          <td>&gt; 80% for 15 min</td>
+        </tr>
+        <tr>
+          <td>Memory</td>
+          <td><code>mem_used_percent</code></td>
+          <td>&gt; 90% for 15 min</td>
+        </tr>
+        <tr>
+          <td>CPU</td>
+          <td><code>cpu_usage_active</code></td>
+          <td>&gt; 80% for 15 min</td>
+        </tr>
+      </table>
+    </div>
+    <p class="footnote">Thresholds are deliberately conservative to avoid noise; they are one-line Terraform changes to tune. On a burstable t4g the CPU alarm doubles as a cost guard (sustained bursts bill as surplus credits).</p>
+
+    <h3>Dashboard</h3>
+    <p>One Terraform-managed CloudWatch dashboard: CPU, memory, disk, network, and request rate (per-service series stacked, with the total). Widgets read from <code>CWAgent</code> and <code>WKX/Edge</code>.</p>
+
+    <h3>Terraform and repo layout</h3>
+    <ul>
+      <li><code>infra/aws/</code> gains <code>logs.tf</code>, <code>sns.tf</code>, <code>alarms.tf</code>, <code>dashboard.tf</code> (file-per-concern, matching the root's existing style); <code>providers.tf</code> gains the <code>us-east-1</code> alias; <code>variables.tf</code> gains <code>alert_email</code> with no default.</li>
+      <li><code>terraform test</code> invariants extend to: every log group has a retention policy and the right tags, every alarm has an action wired, the dashboard exists.</li>
+      <li>Compose overlays: <code>platform/compose.cloud.yml</code>, <code>hello/compose.cloud.yml</code>; the Caddyfile gains the access-log directive.</li>
+      <li>cloud-init: GPG verification plus agent bootstrap from SSM.</li>
+      <li>Docs: <code>docs/setup/m4-infra-state.md</code> (+ gitignored <code>.local.md</code>), the roadmap amendment, spec §4 correction, CONTEXT.md glossary update, and ADR candidates for the awslogs decision and the agent's layer. The grill pass owns the last two.</li>
+    </ul>
+
+    <h3>Verification (hands-on artefacts)</h3>
+    <ol>
+      <li>Tail Caddy and hello logs live in the CloudWatch console (roadmap artefact).</li>
+      <li><code>aws cloudwatch set-alarm-state</code> forces the billing alarm; the email arrives (roadmap artefact).</li>
+      <li>A short <code>curl</code> loop against <code>hello.wingkongexchange.dev</code> moves the request-rate widget.</li>
+      <li>Agent status is healthy via SSM; the GPG verification shows in the cloud-init log.</li>
+    </ol>
+
+    <h3>Cost</h3>
+    <p class="footnote">Expected steady-state addition is roughly USD 1 to 2 per month, dominated by log ingest (the spec's cost table already carries USD 0.70 for that). Custom metrics and alarms sit inside or near the always-free tier (10 custom metrics, 10 alarms, 3 dashboards); the grill verifies the exact metric count the agent config produces.</p>
+
+    <h3>Open questions for the grill</h3>
+    <ul>
+      <li>Member-account billing metrics require "Receive Billing Alerts" enabled once in the management account console. Verify the exact prerequisite and document it as a manual step.</li>
+      <li>Exact source and fingerprint of Amazon's CloudWatch agent GPG key.</li>
+      <li>Caddy access-log directive specifics (site-block <code>log</code> with JSON to stdout) against current Caddy docs.</li>
+      <li>Whether the t4g's default credit mode (unlimited vs standard) argues for a <code>CPUCreditBalance</code> alarm alongside or instead of the CPU alarm.</li>
+      <li>Whether <code>/wkx/platform/prod/...</code> resources should carry the env dimension at all, given host-level resources normally have none. The counterpoint: the home box would be <code>/wkx/platform/home</code>, and platform services' data dirs already carry env.</li>
+      <li>Glossary consequence of the <code>/wkx/platform/&lt;env&gt;</code> naming: CONTEXT.md should record that "platform" occupies the service slot for host-level and substrate emissions, extending the pattern the Platform stack entry already establishes.</li>
+      <li>Exact count of custom metrics the agent config produces versus the always-free tier of 10.</li>
+    </ul>
+
+    <p class="approve">Approve section 4?</p>
+  </section>
+</div>
