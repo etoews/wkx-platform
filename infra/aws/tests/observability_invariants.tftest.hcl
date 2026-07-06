@@ -172,3 +172,12 @@ run "alarms_wired_to_sns" {
   # dimensions map carries the unknown aws_instance.host.id, which makes
   # every key access unknown at plan time.
 }
+
+run "dashboard_exists" {
+  command = plan
+
+  assert {
+    condition     = aws_cloudwatch_dashboard.wkx.dashboard_name == "wkx-prod"
+    error_message = "The dashboard wkx-prod must exist."
+  }
+}
