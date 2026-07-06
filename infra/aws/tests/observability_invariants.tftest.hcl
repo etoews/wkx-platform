@@ -87,3 +87,26 @@ run "alerts_topic" {
     error_message = "wkx-alerts must have an email subscription."
   }
 }
+
+run "alarms_wired_to_sns" {
+  command = plan
+
+  assert {
+    condition = alltrue([
+      aws_cloudwatch_metric_alarm.disk_root.alarm_name == "wkx-host-disk-root",
+      aws_cloudwatch_metric_alarm.disk_data.alarm_name == "wkx-host-disk-data",
+      aws_cloudwatch_metric_alarm.mem.alarm_name == "wkx-host-mem",
+      aws_cloudwatch_metric_alarm.cpu.alarm_name == "wkx-host-cpu",
+      aws_cloudwatch_metric_alarm.cpu_credits.alarm_name == "wkx-host-cpu-credits",
+    ])
+    error_message = "Every alarm must have the correct name."
+  }
+
+  assert {
+    condition = alltrue([
+      aws_cloudwatch_metric_alarm.cpu_credits.namespace == "AWS/EC2",
+      aws_cloudwatch_metric_alarm.cpu_credits.comparison_operator == "LessThanThreshold",
+    ])
+    error_message = "The credit alarm reads AWS/EC2 CPUCreditBalance, alarming low."
+  }
+}
