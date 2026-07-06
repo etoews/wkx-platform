@@ -1,0 +1,41 @@
+{
+  "agent": {
+    "metrics_collection_interval": 60
+  },
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/syslog",
+            "log_group_name": "/wkx/platform/prod",
+            "log_stream_name": "syslog"
+          }
+        ]
+      }
+    }
+  },
+  "metrics": {
+    "append_dimensions": {
+      "InstanceId": "${aws:InstanceId}"
+    },
+    "metrics_collected": {
+      "cpu": {
+        "totalcpu": true,
+        "measurement": ["usage_active"]
+      },
+      "mem": {
+        "measurement": ["used_percent"]
+      },
+      "disk": {
+        "measurement": ["used_percent"],
+        "resources": ["/", "/srv/data"],
+        "drop_device": true
+      },
+      "net": {
+        "measurement": ["bytes_sent", "bytes_recv"],
+        "resources": ["ens5"]
+      }
+    }
+  }
+}

@@ -52,3 +52,20 @@ run "request_rate_metric_filter" {
     error_message = "RequestCount publishes to WKX/Edge with the Host dimension."
   }
 }
+
+run "agent_config_from_repo_file" {
+  command = plan
+
+  assert {
+    condition = alltrue([
+      aws_ssm_parameter.cloudwatch_agent_config.name == "/wkx/platform/prod/CLOUDWATCH_AGENT_CONFIG",
+      aws_ssm_parameter.cloudwatch_agent_config.type == "String",
+    ])
+    error_message = "Agent config: /wkx/platform path, plain String (not a secret)."
+  }
+
+  assert {
+    condition     = nonsensitive(aws_ssm_parameter.cloudwatch_agent_config.value) == file("../../host/cloudwatch-agent.json")
+    error_message = "The parameter value must be exactly the repo file."
+  }
+}
