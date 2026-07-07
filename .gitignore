@@ -1,5 +1,6 @@
 .obsidian/
 .superpowers/
+.scratch/
 
 # Local-only setup state — contains real account IDs, emails, etc. Never commit.
 docs/setup/*.local.md
