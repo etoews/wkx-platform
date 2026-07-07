@@ -144,6 +144,7 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
     - Reloads Caddy.
 - Extract "hello" to its own repo `wkx-hello` and wire it through the new pipeline.
 - Deploy script (`tools/deploy/`) **requires** `--env` — no default. Forgetting it errors out with valid env patterns. CI workflows hardcode their target env (PR-open: `pr-<N>`; main-merge: `prod`).
+- Parameterise the `awslogs-group` env in the `compose.cloud.yml` overlays (hardcoded `prod` since M4, fine for its prod-only scope) so PR-env container logs land in `/wkx/<service>/<env>` rather than the prod group.
 
 **Hands-on artifact**
 - Push to `wkx-hello` main → deployed in under 2 minutes.

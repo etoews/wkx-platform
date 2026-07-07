@@ -88,7 +88,7 @@ run "alerts_topic" {
   }
 }
 
-run "alarms_wired_to_sns" {
+run "alarm_invariants" {
   command = plan
 
   assert {
@@ -168,9 +168,23 @@ run "alarms_wired_to_sns" {
     error_message = "Every alarm evaluates 3 x 5 min (15 min sustained)."
   }
 
+  assert {
+    condition = alltrue([
+      aws_cloudwatch_metric_alarm.disk_root.statistic == "Average",
+      aws_cloudwatch_metric_alarm.disk_data.statistic == "Average",
+      aws_cloudwatch_metric_alarm.mem.statistic == "Average",
+      aws_cloudwatch_metric_alarm.cpu.statistic == "Average",
+      aws_cloudwatch_metric_alarm.cpu_credits.statistic == "Average",
+    ])
+    error_message = "Every alarm evaluates the Average statistic."
+  }
+
   # Dimension literals (path, fstype, cpu) cannot be asserted here: the
   # dimensions map carries the unknown aws_instance.host.id, which makes
-  # every key access unknown at plan time.
+  # every key access unknown at plan time. The same applies to
+  # alarm_actions/ok_actions: the SNS topic ARN is unknown in a create
+  # plan, so those attributes are equally unassertable here. SNS wiring
+  # was live-verified post-apply via describe-alarms.
 }
 
 run "dashboard_exists" {

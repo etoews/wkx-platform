@@ -885,6 +885,8 @@ Use the Task 6 Step 5 record. The code below assumes the expected sets (`fstype`
 
 Append to `infra/aws/tests/observability_invariants.tftest.hcl`:
 
+> Execution note (2026-07-07): the alarm_actions asserts below proved unevaluable in a create-plan run ("Condition expression could not be evaluated"); the committed test pins the plan-time-knowable attributes instead, and SNS wiring was live-verified post-apply.
+
 ```hcl
 run "alarms_wired_to_sns" {
   command = plan
