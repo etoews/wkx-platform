@@ -1,7 +1,7 @@
 # M5: Secrets + Config Design
 
 Date: 2026-07-10
-Status: approved in brainstorm, pre-grill
+Status: approved and grilled; revised per grill outcomes (ADRs 0022, 0023)
 
 ## 1. Scope
 
