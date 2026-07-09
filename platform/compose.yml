@@ -11,8 +11,12 @@ services:
     cpus: 0.5
     ports:
       - "443:443"
+    # CLOUDFLARE_API_TOKEN, rendered from SSM (ADR 0022): raw values,
+    # render-before-up enforced.
     env_file:
-      - /srv/secrets/caddy/prod.env # CLOUDFLARE_API_TOKEN, rendered from SSM
+      - path: /srv/secrets/caddy/prod.env
+        required: true
+        format: raw
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - /etc/caddy/Caddyfile.d:/etc/caddy/Caddyfile.d:ro

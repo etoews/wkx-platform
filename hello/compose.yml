@@ -6,6 +6,13 @@ services:
   web:
     image: ${ECR_REGISTRY:?}/wkx/hello:${HELLO_TAG:?}
     restart: unless-stopped
+    # Env-file rendered from SSM before every up (ADR 0022). required: true
+    # makes render-before-up an ordering contract; format: raw passes
+    # values verbatim (no interpolation, no quote processing).
+    env_file:
+      - path: /srv/secrets/hello/${ENV:?}.env
+        required: true
+        format: raw
     mem_limit: 128m
     cpus: 0.25
     networks:
