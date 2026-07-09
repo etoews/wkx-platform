@@ -116,11 +116,11 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 ## M5 · Secrets + config — Size: M
 
 **Deliverables**
-- SSM Parameter Store namespace `/wkx/<service>/<env>/<KEY>`.
-- Python helper (`tools/secrets/`, packaged with uv) that reads parameters by path and renders a `.env` file at deploy time.
-- Compose env-file path standardized at `/srv/secrets/<service>/<env>.env` (gitignored, regenerated on deploy).
-- Instance role permits read-by-path; deploy script (M6) re-renders before `compose up`.
-- Revisit IMDS hop limit 2 before secrets land in Parameter Store: containers can currently reach the instance role's credentials; drop to hop limit 1 or record the acceptance in an ADR.
+- SSM Parameter Store namespace `/wkx/<service>/<env>/<KEY>` (live since M3; the Caddy token was its first tenant).
+- `tools/secrets/render-env.sh` (bash + aws-cli, ADR 0022): reads a Parameter namespace by path and renders the Env-file at deploy time. Fail closed, atomic, 0600. The uv-packaged Python helper originally planned here was dropped; Python lands under `tools/` when a tool outgrows bash (ADR 0022).
+- Compose env-file path standardised at `/srv/secrets/<service>/<env>.env` (created by cloud-init on the root volume, regenerated on deploy, never on the Data volume). Compose consumes it with `env_file` long syntax (`format: raw`, `required: true`).
+- Instance role read-by-path (in place since M3); deploy script (M6) re-renders before `compose up`.
+- IMDS hop limit dropped to 1 (ADR 0023): containers cannot reach the instance role's credentials.
 
 **Hands-on artifact**
 - Set `/wkx/hello/prod/MESSAGE = "hello world"`.
@@ -138,7 +138,7 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
   - Build multi-stage container (`Dockerfile` targets `linux/arm64` by default).
   - Push to ECR with tag `<sha>`.
   - Trigger deploy via `aws ssm send-command` invoking a script that:
-    - Renders env-file from SSM (using the M5 helper).
+    - Renders the Env-file from SSM (using the M5 render script).
     - Pulls image, runs `docker compose -p <service>-<env> up -d`.
     - Drops the project's caddy snippet at `/etc/caddy/Caddyfile.d/<service>-<env>.caddy`.
     - Reloads Caddy.

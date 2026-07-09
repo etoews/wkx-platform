@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository state
 
-This repo has left the pure design phase. Live today: `infra/` (four Terraform roots: `bootstrap/`, `aws/`, `cloudflare/`, `mgmt/`, all applied; M1 network, M2 Graviton host, and the management-account budgets), `host/cloud-init.yaml` (the cloud Host bootstrap; installs git + aws-cli as of M3, and the GPG-verified CloudWatch agent, configured from SSM, as of M4), and `platform/` plus `hello/` (the Platform stack: Caddy behind Cloudflare with one wildcard cert, flat snippet dir; and the `hello` smoke-test app; M3 complete). M4 observability is live (log groups, alarms, and dashboard in `infra/aws/`; agent config in `host/cloudwatch-agent.json`; `compose.cloud.yml` overlays beside each compose file). Still to come milestone by milestone per `ROADMAP.md`: Python tooling under `tools/` (M5 onward) and the reference project under `template/` (M8). The design spec, milestone plans, ADRs under `docs/adr/`, and the `CONTEXT.md` glossary remain the sources of truth.
+This repo has left the pure design phase. Live today: `infra/` (four Terraform roots: `bootstrap/`, `aws/`, `cloudflare/`, `mgmt/`, all applied; M1 network, M2 Graviton host, and the management-account budgets), `host/cloud-init.yaml` (the cloud Host bootstrap; installs git + aws-cli as of M3, and the GPG-verified CloudWatch agent, configured from SSM, as of M4), and `platform/` plus `hello/` (the Platform stack: Caddy behind Cloudflare with one wildcard cert, flat snippet dir; and the `hello` smoke-test app; M3 complete). M4 observability is live (log groups, alarms, and dashboard in `infra/aws/`; agent config in `host/cloudwatch-agent.json`; `compose.cloud.yml` overlays beside each compose file). M5 secrets + config is live (`tools/secrets/` render script per ADR 0022, `/srv/secrets` via cloud-init, IMDS hop limit 1 per ADR 0023, Host replaced). Still to come milestone by milestone per `ROADMAP.md`: Python tooling under `tools/` when a tool outgrows bash (ADR 0022) and the reference project under `template/` (M8). The design spec, milestone plans, ADRs under `docs/adr/`, and the `CONTEXT.md` glossary remain the sources of truth.
 
 Build, lint, and test tooling exists for the infrastructure code: `terraform test` runs invariant tests in `infra/aws/` and `infra/mgmt/`, and `terraform fmt` and `terraform validate` apply to all roots (`bootstrap/`, `aws/`, `cloudflare/`, `mgmt/`). Beyond Terraform, relevant operations include:
 
@@ -54,9 +54,16 @@ When generating resources, follow §6 of the design spec exactly:
 
 The repo's unit of implementation is the **milestone**, not the PR. Recommended flow:
 
-1. Open `ROADMAP.md` and the relevant section of the design spec for the target milestone.
-2. Write or update an implementation plan under `docs/superpowers/plans/<date>-m<N>-<slug>.md` using checkbox syntax so an agent can execute it task by task. Existing plan: `2026-05-01-m0-prerequisites.md`.
-3. Execute the plan one task at a time. When the milestone produces verification commands ("hands-on artifacts" in the roadmap), run them and capture results.
+1. Open `ROADMAP.md` and the relevant section of the design spec for the next milestone.
+2. Use `/brainstorm-with-docs`
+3. Write or update an implementation plan under `docs/superpowers/plans/<date>-m<N>-<slug>.md` using checkbox syntax so an agent can execute it task by task.
+4. Use `/handoff create a handoff doc similar to the ones in @.superpowers/handoff/ for building this milestone`
+5. Use `/clear`
+6. Use `/superpowers:subagent-driven-development the latest handoff doc in @scratch./handoff/`
+7. Execute the plan one task at a time. When the milestone produces verification commands ("hands-on artifacts" in the roadmap), run them and capture results.
+8. Use `/security-review`
+9. Pause and I'll decide when to ff merge and push.
+10. Update the ROADMAP.md and tick off everything that was completed.
 
 Do not jump milestones. The critical path `M0 → M1 → M2 → M3` is sequential; later milestones assume earlier deliverables exist.
 
