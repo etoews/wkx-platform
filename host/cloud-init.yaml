@@ -6,6 +6,7 @@
 # Replacement drill exercised: 2026-07-04 (ADR 0017).
 # M3 added: git package and aws-cli snap (deploy-model prerequisites).
 # M4 added: GPG-verified CloudWatch agent install, configured from SSM.
+# M5 added: /srv/secrets, the Env-file render target (ADR 0022).
 
 package_update: true
 package_upgrade: true
@@ -121,3 +122,8 @@ runcmd:
   # Deploy-model prerequisites (M3): the repo checkout needs git (above) and
   # rendering secrets from SSM plus ECR login need the AWS CLI.
   - [snap, install, aws-cli, --classic]
+  # Env-files render into /srv/secrets (ADR 0022): root volume only,
+  # platform-owned. Never the Data volume: M10 snapshots must not
+  # capture rendered secrets. The platform user cannot create this
+  # (root owns /srv), so bootstrap must.
+  - [install, -d, -o, platform, -g, platform, -m, '0700', /srv/secrets]

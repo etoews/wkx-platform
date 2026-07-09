@@ -17,6 +17,11 @@ run "host_is_imdsv2_and_cattle" {
   }
 
   assert {
+    condition     = aws_instance.host.metadata_options[0].http_put_response_hop_limit == 1
+    error_message = "IMDS hop limit must be 1: containers must not reach instance credentials (ADR 0023)."
+  }
+
+  assert {
     condition     = aws_instance.host.ami == nonsensitive(data.aws_ssm_parameter.ubuntu_arm64.value)
     error_message = "The AMI must come from the Canonical SSM parameter, never a hardcoded ID."
   }

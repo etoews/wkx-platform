@@ -46,9 +46,12 @@ resource "aws_instance" "host" {
   }
 
   metadata_options {
-    http_endpoint               = "enabled"
-    http_tokens                 = "required"
-    http_put_response_hop_limit = 2
+    http_endpoint = "enabled"
+    http_tokens   = "required"
+    # Containers must not reach the instance role's credentials: the role
+    # reads every /wkx/* Parameter. Hop limit 1 stops IMDSv2 token
+    # responses at the bridge-network boundary (ADR 0023, reverses M2).
+    http_put_response_hop_limit = 1
   }
 
   root_block_device {
