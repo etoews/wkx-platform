@@ -91,3 +91,21 @@ _Avoid_: proxy network, caddy network
 
 **Edge alias**:
 The network alias `<service>-<env>` a Service registers on the Edge network; the upstream address its Caddy snippet proxies to (for example `hello-prod`).
+
+### Configuration and secrets
+
+**Parameter**:
+One SSM Parameter Store entry at `/wkx/<service>/<env>/<KEY>`, the unit of config for a Service in an env. `<KEY>` is uppercase snake case and becomes the variable name in the Env-file. Secrets are type `SecureString`; non-secret config is `String`. The type states sensitivity only; both render identically.
+_Avoid_: SSM param, secret (as the umbrella term; not every Parameter is secret)
+
+**Parameter namespace**:
+The path prefix `/wkx/<service>/<env>/` that scopes one Service-env's Parameters. The render reads exactly this prefix, nothing deeper.
+_Avoid_: parameter path, SSM namespace
+
+**Env-file**:
+The per-Service, per-env file at `/srv/secrets/<service>/<env>.env`, rendered from SSM Parameter Store at deploy time and consumed by a Compose service's `env_file:` directive, becoming the container's environment. Carries secrets and non-secret config alike. Regenerated on every deploy, never edited by hand, never committed; it lives on the disposable root volume, not the Data volume.
+_Avoid_: dotenv, .env (ambiguous with the Env-file Interpolated), secrets file
+
+**Env-file Interpolated**:
+The gitignored `.env` beside a compose file, supplying `${VAR}` interpolation values (registry, image tags, `ENV`) to Compose itself. Hand-maintained on a Host, never contains secrets; its values shape the compose configuration and never enter a container's environment. In prose: "the interpolated env-file".
+_Avoid_: .env (ambiguous with the Env-file), interpolation env

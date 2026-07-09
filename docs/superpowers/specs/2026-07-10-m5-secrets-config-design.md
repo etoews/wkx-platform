@@ -5,13 +5,14 @@ Status: approved in brainstorm, pre-grill
 
 ## 1. Scope
 
-M5 makes SSM Parameter Store the single source of secrets and config for every Service, and proves the path end to end through hello. Five deliverables:
+M5 makes SSM Parameter Store the single source of secrets and config for every Service, and proves the path end to end through hello. Six deliverables:
 
 1. `tools/secrets/render-env.sh`: a committed bash script that reads `/wkx/<service>/<env>/*` from Parameter Store and renders `/srv/secrets/<service>/<env>.env`. It generalises the manual render M3 performed for Caddy's `CLOUDFLARE_API_TOKEN`.
 2. IMDS hop limit drops from 2 to 1 in `infra/aws/ec2.tf`, with a Terraform invariant test and an ADR.
-3. hello consumes its env-file via `env_file` in `hello/compose.yml`, proven by the `/wkx/hello/prod/MESSAGE` hands-on artifact.
-4. Docs: `docs/setup/m5-infra-state.md` (public template) plus its gitignored `.local.md` sibling, and `tools/secrets/README.md` as the operator runbook.
-5. Amendments: `ROADMAP.md` M5 reworded (the Python/uv helper framing is dropped), one ADR recording bash-not-Python, one ADR recording the IMDS drop.
+3. hello consumes its Env-file via `env_file` in `hello/compose.yml`, proven by the `/wkx/hello/prod/MESSAGE` hands-on artifact.
+4. `host/cloud-init.yaml` creates `/srv/secrets` (0700, owned by `platform`); until now it existed only as undocumented manual work, and the `platform` user cannot create it under root-owned `/srv`. This is a `user_data` change, so the Host is replaced (ADR 0017); accepted at the grill (2026-07-10). The replacement doubles as a rehearsal of the replacement runbook, which gains the render steps.
+5. Docs: `docs/setup/m5-infra-state.md` (public template) plus its gitignored `.local.md` sibling, and `tools/secrets/README.md` as the operator runbook.
+6. Amendments: `ROADMAP.md` M5 reworded (the Python/uv helper framing is dropped), one ADR recording bash-not-Python, one ADR recording the IMDS drop.
 
 Already in place, requiring no M5 work: the parameter namespace (live since M3), the `wkx-host` role's `ssm:GetParametersByPath` on `parameter/wkx/*` (`infra/aws/iam.tf`), and the `/srv/secrets/<service>/<env>.env` convention (M3, mode 600, owner `platform`).
 
@@ -21,7 +22,9 @@ Already in place, requiring no M5 work: the parameter namespace (live since M3),
 2. **Bash + aws-cli, not a Python package.** The original roadmap deliverable ("Python helper, packaged with uv") was challenged and dropped: the job is a small transform, and a uv package would have cost a pinned uv install in cloud-init (a Host replacement under ADR 0017) plus a PyPI supply chain in the deploy path. Python arrives under `tools/` when a tool genuinely outgrows bash (likely candidate: the M8 scaffold), decided at that milestone. When it does, it follows the standards in `~/dev/etoews/python/PROJECT.md`: uv, ruff, pytest, ty, Typer, `src/` layout.
 3. **IMDS hop limit 1.** With secrets in Parameter Store, the instance role's credentials now unlock every `/wkx/*` value; containers must not be able to mint IMDSv2 tokens. Everything that needs AWS credentials today runs in the host network namespace. Recorded consequence for M10: a containerised backup runner needs host networking, its own credentials, or a host-level job.
 4. **Parameters are set by operator CLI, never by Terraform**, so secret values stay out of state. The one exception stands: `infra/cloudflare` writes `/wkx/caddy/prod/CLOUDFLARE_API_TOKEN`, because Terraform generates that value anyway.
-5. **Fail closed everywhere.** Values or keys the env-file format cannot represent abort the render; nothing is ever silently mangled.
+5. **Fail closed everywhere.** Values or keys the env-file format cannot represent abort the render; nothing is ever silently mangled. `--service` and `--env` are shape-validated (`^[a-z][a-z0-9-]*$`) because they build both the Parameter namespace and a filesystem path; traversal input aborts.
+6. **`/srv/secrets` is created by cloud-init**, closing a reconstructability gap: the root volume is disposable, and every Service's deploy now depends on the Env-file. The resulting Host replacement is accepted (grill, 2026-07-10).
+7. **Env-files live on the root volume, never the Data volume.** M10 snapshots the Data volume, and rendered secrets must not outlive the box in EBS snapshots. Env-files regenerate on every deploy.
 
 ## 3. The render script (`tools/secrets/render-env.sh`)
 
@@ -60,7 +63,7 @@ JSON is piped through a short `python3` stdlib one-shot (the system interpreter,
 
 ### 3.5 Write
 
-`umask 077`; `mkdir -p` the service directory (700); write to a temp file in the target directory; atomic `mv` into place. Result is 600, owned by the invoking user, with no partial file possible on any failure. Keys are sorted for deterministic diffs.
+`umask 077`; `mkdir -p` the service directory (700) under `/srv/secrets`, which cloud-init guarantees exists and `platform` owns; write to a temp file in the target directory; atomic `mv` into place. Result is 600, owned by the invoking user, with no partial file possible on any failure. Keys are sorted for deterministic diffs.
 
 **Empty path** (zero parameters): render an empty file, warn on stderr, exit 0. Services without config still get a valid env-file so `required: true` in Compose never trips.
 
@@ -70,7 +73,7 @@ stderr reports the parameter count and key names, never values. Non-zero exit on
 
 ## 4. IMDS hop limit (`infra/aws/ec2.tf`)
 
-`http_put_response_hop_limit` changes from 2 to 1; `http_tokens` stays `required`. This is an in-place attribute update (confirm at plan time: no Host replacement). Containers on bridge networks such as `wkx-edge` can no longer complete the IMDSv2 token PUT, so a compromised container cannot reach instance role credentials. Unaffected, because they run in the host network namespace: the CloudWatch agent, the `awslogs` driver (inside dockerd), and aws-cli usage for renders and ECR login.
+`http_put_response_hop_limit` changes from 2 to 1; `http_tokens` stays `required`. The attribute is updatable in place, but M5's cloud-init change replaces the Host in the same apply regardless; the new instance boots with hop limit 1. Containers on bridge networks such as `wkx-edge` can no longer complete the IMDSv2 token PUT, so a compromised container cannot reach instance role credentials. Unaffected, because they run in the host network namespace: the CloudWatch agent, the `awslogs` driver (inside dockerd), and aws-cli usage for renders and ECR login.
 
 A new invariant test in `infra/aws/tests/` pins `hop_limit == 1` and `http_tokens == "required"`.
 
@@ -90,6 +93,7 @@ Implementation check: confirm changed env-file content causes `docker compose up
 
 ## 6. Hands-on artifact
 
+0. `terraform apply` replaces the Host (cloud-init change). Post-replacement bring-up follows the replacement runbook: re-clone the repo checkout as `platform`, recreate the interpolated env-files, render the Env-files, `compose up` the Platform stack and hello. Expected noise: `wkx-host-cpu-credits` sits in ALARM roughly 5 to 6 hours while the credit bank refills (known from M4).
 1. From the workstation: `aws ssm put-parameter --name /wkx/hello/prod/MESSAGE --type String --value "hello world"`, then tag it (`Service=hello`, `Env=prod`) with `aws ssm add-tags-to-resource`.
 2. On-box (SSM session, as `platform`): `render-env.sh --service hello --env prod`, then `docker compose -f compose.yml -f compose.cloud.yml -p hello-prod up -d`. Interpolation values (`ENV`, registry, tags) come from the on-box gitignored `hello/.env`, the M3 convention. The page shows the message.
 3. Update the parameter, re-render, `up -d` again. The page shows the new message.
@@ -106,10 +110,11 @@ Implementation check: confirm changed env-file content causes `docker compose up
 - ADR 0022: secrets render via bash + aws-cli, not a Python helper (records the roadmap amendment and the revisit trigger).
 - ADR 0023: IMDS hop limit 1 (supersedes the M2 design note "hop 2 so containers can reach instance credentials if ever needed"; records the M10 backup-runner consequence).
 - `ROADMAP.md`: M5 deliverables reworded; M6's "using the M5 helper" stays true as written.
-- `docs/setup/m5-infra-state.md` + gitignored `.local.md`.
+- `docs/setup/m5-infra-state.md` + gitignored `.local.md`, including the replacement runbook additions (post-replacement bring-up now includes rendering Env-files).
 - `tools/secrets/README.md`: operator runbook (setting parameters with type and tag conventions, rendering, verifying).
+- `host/cloud-init.yaml` header comment gains the M5 line (`/srv/secrets` creation).
 - `CLAUDE.md` repo-state paragraph refreshed at milestone close.
-- `CONTEXT.md` terminology (env-file, render, parameter namespace) is settled during the grill that follows this design.
+- `CONTEXT.md` terminology was settled at the grill (2026-07-10): Parameter, Parameter namespace, Env-file, Env-file Interpolated.
 
 ## 9. Out of scope
 
