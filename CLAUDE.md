@@ -59,7 +59,7 @@ The repo's unit of implementation is the **milestone**, not the PR. Recommended 
 3. Write or update an implementation plan under `docs/superpowers/plans/<date>-m<N>-<slug>.md` using checkbox syntax so an agent can execute it task by task.
 4. Use `/handoff create a handoff doc similar to the ones in @.superpowers/handoff/ for building this milestone`
 5. Use `/clear`
-6. Use `/superpowers:subagent-driven-development the latest handoff doc in @scratch./handoff/`
+6. Use `/superpowers:subagent-driven-development the latest handoff doc in @.superpowers/handoff/`
 7. Execute the plan one task at a time. When the milestone produces verification commands ("hands-on artifacts" in the roadmap), run them and capture results.
 8. Use `/security-review`
 9. Pause and I'll decide when to ff merge and push.
