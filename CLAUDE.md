@@ -63,9 +63,13 @@ The repo's unit of implementation is the **milestone**, not the PR. Recommended 
 7. Execute the plan one task at a time. When the milestone produces verification commands ("hands-on artifacts" in the roadmap), run them and capture results.
 8. Use `/security-review`
 9. Pause and I'll decide when to ff merge and push.
-10. Update the ROADMAP.md and tick off everything that was completed.
+10. Update the ROADMAP.md and tick off everything that was completed. Make any carry-forward notes a subsection of the most recently completed milestone.
 
 Do not jump milestones. The critical path `M0 → M1 → M2 → M3` is sequential; later milestones assume earlier deliverables exist.
+
+## Python
+
+Anything Python, in this repo or in a `wkx-*` app repo, follows [`docs/adr/0000-python-standards.md`](docs/adr/0000-python-standards.md). Read it before writing, reviewing, or scaffolding Python. It is the distillation of the machine-wide standards in `~/dev/etoews/python/PROJECT.md` and fixes the toolchain (uv, ruff, pytest, ty), the two shapes Python takes here (stdlib-only scripts on the Host, uv-packaged tools under `tools/`), and the bar for typing, docstrings, logging, secrets, and CI. Bash comes first: Python only arrives when a tool outgrows bash (ADR 0022).
 
 ## Writing conventions in this repo
 
