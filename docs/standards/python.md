@@ -1,8 +1,6 @@
 # Python standards
 
-Status: accepted
-
-Python here follows the machine-wide standards in `~/dev/etoews/python/PROJECT.md`: uv for deps and envs, ruff for lint and format, pytest for tests, ty for type checking, stdlib `logging`, `src/` layout, `pyproject.toml` as the single source of truth. This ADR is the distillation, recording which parts bind in this repo and where they stop. It expands the clause in [ADR 0022](0022-secrets-render-bash-aws-cli.md) that says Python under `tools/` is "uv-packaged with ruff, pytest, and ty". PROJECT.md keeps the full rationale and the copy-paste templates; the section references below point into it.
+Python here follows the machine-wide standards in `~/dev/etoews/python/PROJECT.md`: uv for deps and envs, ruff for lint and format, pytest for tests, ty for type checking, stdlib `logging`, `src/` layout, `pyproject.toml` as the single source of truth. This document is the distillation, recording which parts bind in this repo and where they stop. It expands the clause in [ADR 0022](../adr/0022-secrets-render-bash-aws-cli.md) that says Python under `tools/` is "uv-packaged with ruff, pytest, and ty". PROJECT.md keeps the full rationale and the copy-paste templates; the section references below point into it.
 
 ## Bash first
 

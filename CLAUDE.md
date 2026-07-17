@@ -69,7 +69,7 @@ Do not jump milestones. The critical path `M0 → M1 → M2 → M3` is sequentia
 
 ## Python
 
-Anything Python, in this repo or in a `wkx-*` app repo, follows [`docs/adr/0000-python-standards.md`](docs/adr/0000-python-standards.md). Read it before writing, reviewing, or scaffolding Python. It is the distillation of the machine-wide standards in `~/dev/etoews/python/PROJECT.md` and fixes the toolchain (uv, ruff, pytest, ty), the two shapes Python takes here (stdlib-only scripts on the Host, uv-packaged tools under `tools/`), and the bar for typing, docstrings, logging, secrets, and CI. Bash comes first: Python only arrives when a tool outgrows bash (ADR 0022).
+Anything Python, in this repo or in a `wkx-*` app repo, follows [`docs/standards/python.md`](docs/standards/python.md). Read it before writing, reviewing, or scaffolding Python. It is the distillation of the machine-wide standards in `~/dev/etoews/python/PROJECT.md` and fixes the toolchain (uv, ruff, pytest, ty), the two shapes Python takes here (stdlib-only scripts on the Host, uv-packaged tools under `tools/`), and the bar for typing, docstrings, logging, secrets, and CI. Bash comes first: Python only arrives when a tool outgrows bash (ADR 0022).
 
 ## Writing conventions in this repo
 

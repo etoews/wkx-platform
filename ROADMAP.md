@@ -1,18 +1,35 @@
-# WKX Platform — Roadmap
+# WKX Platform Roadmap
 
 Build order, deliverables, and hands-on artefact at every milestone.
 
 For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platform-design.md](docs/superpowers/specs/2026-05-01-wkx-platform-design.md).
 
-**Sizes:** S = ≤ a session · M = a focused weekend or 2 evenings · L = several sessions, expect debugging.
+M0 to M5 are complete. Carry-forward notes live under the most recently completed milestone.
+
+## Contents
+
+| Milestone | Size | Status |
+|-----------|------|--------|
+| [M0: Prerequisites](#m0-prerequisites) | S | ✅ Complete |
+| [M1: Networking + DNS skeleton](#m1-networking--dns-skeleton) | M | ✅ Complete |
+| [M2: Graviton host](#m2-graviton-host) | M | ✅ Complete |
+| [M3: Caddy + TLS](#m3-caddy--tls) | L | ✅ Complete |
+| [M4: Observability](#m4-observability) | M | ✅ Complete |
+| [M5: Secrets + config](#m5-secrets--config) | M | ✅ Complete |
+| [M6: CI/CD](#m6-cicd) | L | ⬜ Next |
+| [M7: Auto-upgrades](#m7-auto-upgrades) | M | ⬜ Not started |
+| [M8: "Add a project" workflow](#m8-add-a-project-workflow) | L | ⬜ Not started |
+| [M9: On-prem mirror](#m9-on-prem-mirror) | M | ⬜ Not started |
+| [M10: Hardening + backups](#m10-hardening--backups) | M | ⬜ Not started |
+| [M11: Per-branch preview environments](#m11-per-branch-preview-environments) | M | ⬜ Deferred |
+
+**Sizes:** S = ≤ a session. M = a focused weekend or 2 evenings. L = several sessions, expect debugging.
 
 **Critical path:** M0 → M1 → M2 → M3 is sequential. M4/M5 can run in parallel after M3. M7–M10 are independently orderable. M11 is opt-in.
 
-**Status:** M0 to M5 are complete. Next up is M6 (CI/CD). Carry-forward notes live under the most recently completed milestone.
-
 ---
 
-## M0 · Prerequisites — Size: S · ✅ Complete
+## M0: Prerequisites
 
 **Deliverables**
 - [x] Fresh AWS management account (new email alias, e.g. `you+aws-mgmt@example.com`).
@@ -31,17 +48,17 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 
 ---
 
-## M1 · Networking + DNS skeleton — Size: M · ✅ Complete
+## M1: Networking + DNS skeleton
 
 **Deliverables**
 - [x] Terraform state backend in the platform account: S3 bucket (versioned, encrypted) with S3-native state locking (`use_lockfile`). No DynamoDB lock table (see the M1 plan for rationale).
 - [x] VPC with one public subnet, IGW, default route, IPv6 enabled.
 - [x] Security groups:
-  - `web` — allows 443 only from Cloudflare IPv4 + IPv6 ranges (via Terraform data source pulling Cloudflare's published list). No port 80: Cloudflare reaches the origin over HTTPS (Full-strict), certs are DNS-01.
-  - `host-egress` — allows all outbound.
+  - `web`: allows 443 only from Cloudflare IPv4 + IPv6 ranges (via Terraform data source pulling Cloudflare's published list). No port 80: Cloudflare reaches the origin over HTTPS (Full-strict), certs are DNS-01.
+  - `host-egress`: allows all outbound.
   - **No port 22 open.**
 - [x] Cloudflare zone for `wingkongexchange.dev`.
-- [x] All per-project Terraform modules **require** an `env` input — no default. Account-level/host-level resources don't use the env dimension.
+- [x] All per-project Terraform modules **require** an `env` input with no default. Account-level/host-level resources don't use the env dimension.
 - [x] **AWS resource tagging strategy.** Standardised tags applied to every Terraform-managed AWS resource via the AWS provider's `default_tags` block. Required tag keys:
   - `Project` = `wkx` (always)
   - `ManagedBy` = `terraform` (always)
@@ -56,7 +73,7 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 
 ---
 
-## M2 · Graviton host — Size: M · ✅ Complete
+## M2: Graviton host
 
 **Deliverables**
 - [x] EC2 t4g.medium in the public subnet, ARM64 Ubuntu 26.04 AMI resolved via Canonical's SSM public parameter (never a hardcoded AMI ID).
@@ -79,7 +96,7 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 
 ---
 
-## M3 · Caddy + TLS — Size: L · ✅ Complete
+## M3: Caddy + TLS
 
 **Deliverables**
 - [x] `platform/compose.yml` deployed to the box. Caddy image is custom-built via `xcaddy` with the `caddy-dns/cloudflare` plugin (small Dockerfile in `platform/caddy/`, image pushed to ECR).
@@ -96,7 +113,7 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 
 ---
 
-## M4 · Observability — Size: M · ✅ Complete
+## M4: Observability
 
 **Deliverables**
 - [x] CloudWatch agent config ships (the agent is Layer 2 host tooling, ADR 0021):
@@ -115,7 +132,7 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 
 ---
 
-## M5 · Secrets + config — Size: M · ✅ Complete
+## M5: Secrets + config
 
 **Deliverables**
 - [x] SSM Parameter Store namespace `/wkx/<service>/<env>/<KEY>` (live since M3; the Caddy token was its first tenant).
@@ -138,7 +155,7 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 
 ---
 
-## M6 · CI/CD — Size: L · ⬜ Next
+## M6: CI/CD
 
 **Deliverables**
 - [ ] Terraform module `ecr-repo` creates an ECR repo + the IAM role/trust for OIDC GHA push, scoped per project. Includes lifecycle policy: expire `prod` tags after 30 days, expire branch tags after 14 days. Older rollbacks rebuild from git.
@@ -152,7 +169,7 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
     - Drops the project's caddy snippet at `/etc/caddy/Caddyfile.d/<service>-<env>.caddy`.
     - Reloads Caddy.
 - [ ] Extract "hello" to its own repo `wkx-hello` and wire it through the new pipeline.
-- [ ] Deploy script (`tools/deploy/`) **requires** `--env` — no default. Forgetting it errors out with valid env patterns. CI workflows hardcode their target env (PR-open: `pr-<N>`; main-merge: `prod`).
+- [ ] Deploy script (`tools/deploy/`) **requires** `--env` with no default. Forgetting it errors out with valid env patterns. CI workflows hardcode their target env (PR-open: `pr-<N>`; main-merge: `prod`).
 - [ ] Parameterise the `awslogs-group` env in the `compose.cloud.yml` overlays (hardcoded `prod` since M4, fine for its prod-only scope) so PR-env container logs land in `/wkx/<service>/<env>` rather than the prod group.
 
 **Hands-on artifact**
@@ -161,7 +178,7 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 
 ---
 
-## M7 · Auto-upgrades — Size: M · ⬜ Not started
+## M7: Auto-upgrades
 
 **Deliverables**
 - [ ] Renovate enabled (GitHub-hosted free tier). Configurations cover:
@@ -181,10 +198,10 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 
 ---
 
-## M8 · "Add a project" workflow — Size: L · ⬜ Not started
+## M8: "Add a project" workflow
 
 **Deliverables**
-- [ ] Reference project at `wkx-platform/template/` — a real, CI-tested working app (the `hello` smoke-test app from M3 doubles as the canonical reference). Contains:
+- [ ] Reference project at `wkx-platform/template/`, a real, CI-tested working app (the `hello` smoke-test app from M3 doubles as the canonical reference). Contains:
   - `Dockerfile` (multi-stage, ARM64; flag for amd64 opt-in)
   - `compose.yml` (service + named volume + `mem_limit` + `cpus`)
   - `caddy.snippet` (env-templated host block)
@@ -192,7 +209,7 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
   - `renovate.json`
   - `.devcontainer/`
   - `README.md` with deploy instructions
-- [ ] `wkx-scaffold` CLI in `tools/scaffold/` (Python, packaged with uv per ADR 0000). Behaviour:
+- [ ] `wkx-scaffold` CLI in `tools/scaffold/` (Python, packaged with uv per `docs/standards/python.md`). Behaviour:
   1. Clone `wkx-platform/template/` into a new working directory `wkx-<name>/`.
   2. Substitute `<name>`, `<port>`, `<hostname>` (and a few other placeholders) across all files via plain string replace.
   3. `git init`, initial commit.
@@ -207,7 +224,7 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 
 ---
 
-## M9 · On-prem mirror — Size: M · ⬜ Not started
+## M9: On-prem mirror
 
 **Deliverables**
 - [ ] Idempotent `host/bootstrap.sh` for the home Ubuntu server:
@@ -227,7 +244,7 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 
 ---
 
-## M10 · Hardening + backups — Size: M · ⬜ Not started
+## M10: Hardening + backups
 
 **Deliverables**
 - [ ] IAM least-privilege audit: every policy reviewed and tightened.
@@ -248,7 +265,7 @@ For the full design rationale, see [docs/superpowers/specs/2026-05-01-wkx-platfo
 
 ---
 
-## M11 · Per-branch preview environments — Size: M · ⬜ Deferred
+## M11: Per-branch preview environments
 
 The foundation (env-aware namespacing, `mem_limit`/`cpus`, ECR lifecycle, deploy `--env` flag) lands in earlier milestones. M11 wires up the actual feature.
 
