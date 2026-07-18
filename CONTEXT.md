@@ -109,3 +109,24 @@ _Avoid_: dotenv, .env (ambiguous with the Env-file Interpolated), secrets file
 **Env-file Interpolated**:
 The gitignored `.env` beside a compose file, supplying `${VAR}` interpolation values (registry, image tags, `ENV`) to Compose itself. Hand-maintained on a Host, never contains secrets; its values shape the compose configuration and never enter a container's environment. In prose: "the interpolated env-file".
 _Avoid_: .env (ambiguous with the Env-file), interpolation env
+
+### Operational status
+
+**Status**:
+The three-word health vocabulary for a Service or alarm on any operational surface: up, stabilising, or down, paired with the plan symbols `+`, `~`, `−`. One word per state, no synonyms. Status is the operator's reading; a source system's own state (CloudWatch OK/ALARM/INSUFFICIENT_DATA, `docker compose ps` output) is always shown verbatim beside it, never softened or replaced. An alarm in ALARM says ALARM, whatever colour the board wears.
+
+**up**:
+Running as expected, within thresholds. Deliberately the same word Compose prints and the uptime column uses ("up 4 h 38 m"): one word, one meaning, everywhere. Symbol `+`.
+_Avoid_: healthy, standing, OK (OK is the CloudWatch state, reported verbatim)
+
+**stabilising**:
+In motion toward up with no operator action owed: the credit bank refilling after a Host replacement, a Service warming after deploy. Attend only if it lingers past its expected window; a stabilising entry should always name that window. Symbol `~`.
+_Avoid_: degraded, warning, changing, holding
+
+**down**:
+Not serving. Act now. Symbol `−`.
+_Avoid_: fault, failed, outage, offline
+
+**unlit**:
+Nothing occupies this slot yet: the namespace is reserved and waiting (hello-home before M9, backup before M10). A presentation state, not a health state; absence, never failure. Takes no symbol.
+_Avoid_: pending, inactive, missing
