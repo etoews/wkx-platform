@@ -1,6 +1,6 @@
 # Python standards
 
-Python here follows the machine-wide standards in `~/dev/etoews/python-standards/PROJECT.md`: uv for deps and envs, ruff for lint and format, pytest for tests, ty for type checking, stdlib `logging`, `src/` layout, `pyproject.toml` as the single source of truth. This document is the distillation, recording which parts bind in this repo and where they stop. It expands the clause in [ADR 0022](../adr/0022-secrets-render-bash-aws-cli.md) that says Python under `tools/` is "uv-packaged with ruff, pytest, and ty". PROJECT.md keeps the full rationale and the copy-paste templates; the section references below point into it.
+Python here follows the machine-wide standards in [`PROJECT.md`](https://github.com/etoews/python-standards/blob/main/PROJECT.md): uv for deps and envs, ruff for lint and format, pytest for tests, ty for type checking, stdlib `logging`, `src/` layout, `pyproject.toml` as the single source of truth. This document is the distillation, recording which parts bind in this repo and where they stop. It expands the clause in [ADR 0022](../adr/0022-secrets-render-bash-aws-cli.md) that says Python under `tools/` is "uv-packaged with ruff, pytest, and ty". PROJECT.md keeps the full rationale and the copy-paste templates; the section references below point into it.
 
 ## Bash first
 
@@ -81,6 +81,6 @@ uv run pytest
 
 ## What does not carry over
 
-`~/dev/etoews/python-standards/MAC.md` is one-time machine setup and has no bearing on the repo. PROJECT.md's optional-dependency extras, semver bumps, and publishing guidance are for libraries with downstream consumers; the tools here are unpublished internal ones, where `0.0.1` forever is fine. Coverage stays ungated until a suite is mature, so the tests chase bugs rather than the metric.
+[`MAC.md`](https://github.com/etoews/python-standards/blob/main/MAC.md) is one-time machine setup and has no bearing on the repo. PROJECT.md's optional-dependency extras, semver bumps, and publishing guidance are for libraries with downstream consumers; the tools here are unpublished internal ones, where `0.0.1` forever is fine. Coverage stays ungated until a suite is mature, so the tests chase bugs rather than the metric.
 
-_Source: `~/dev/etoews/python-standards/PROJECT.md`, distilled 2026-07-17. Expands ADR 0022._
+_Source: [`PROJECT.md`](https://github.com/etoews/python-standards/blob/main/PROJECT.md), distilled 2026-07-17. Expands ADR 0022._
