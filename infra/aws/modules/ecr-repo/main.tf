@@ -17,8 +17,13 @@ locals {
   # CI policy stays plan-known (testable) even for a brand-new repository.
   repository_arn = "arn:aws:ecr:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:repository/${local.repository_name}"
 
-  # The single OIDC subject the CI role trusts: this repo's main ref only.
-  ci_subject = local.create_ci_role ? "repo:etoews/${var.github_repo}:ref:refs/heads/main" : null
+  # The CI role trusts this repo's main ref only. AWS requires the trust to
+  # condition on `sub` (or job_workflow_ref), and GitHub's OIDC `sub` now embeds
+  # immutable numeric owner/repo IDs (repo:owner@<id>/name@<id>:ref:...) that a
+  # reusable module cannot know ahead of time. So we StringLike-match the pinned
+  # owner login and repo name with only the IDs wildcarded, still anchored to
+  # refs/heads/main (a PR carries a different ref, so it cannot assume the role).
+  ci_sub_pattern = local.create_ci_role ? "repo:etoews@*/${var.github_repo}@*:ref:refs/heads/main" : null
 
   ci_assume_role_policy = local.create_ci_role ? jsonencode({
     Version = "2012-10-17"
@@ -30,7 +35,9 @@ locals {
       Condition = {
         StringEquals = {
           "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-          "token.actions.githubusercontent.com:sub" = local.ci_subject
+        }
+        StringLike = {
+          "token.actions.githubusercontent.com:sub" = local.ci_sub_pattern
         }
       }
     }]

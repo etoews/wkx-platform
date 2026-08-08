@@ -38,9 +38,9 @@ output "ci_role_name" {
   value       = local.create_ci_role ? aws_iam_role.ci[0].name : null
 }
 
-output "ci_subject" {
-  description = "The exact OIDC sub the CI role trusts (repo:etoews/<repo>:ref:refs/heads/main), or null when no CI role was created. Derived only from github_repo, so it is plan-known for invariant tests."
-  value       = local.ci_subject
+output "ci_sub_pattern" {
+  description = "The OIDC `sub` StringLike pattern the CI role trusts (repo:etoews@*/<repo>@*:ref:refs/heads/main), or null when no CI role was created. The @* tolerates GitHub's immutable owner/repo IDs while pinning owner, repo, and the main ref. Plan-known for invariant tests."
+  value       = local.ci_sub_pattern
 }
 
 output "ci_role_policy" {

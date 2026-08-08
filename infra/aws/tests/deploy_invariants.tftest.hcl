@@ -7,7 +7,7 @@ variables {
 # a computed resource ARN (cf. security_invariants for why some invariants must
 # instead be checked against live state). The trust policy embeds the OIDC
 # provider ARN, which is known-after-apply for a fresh provider, so the sub is
-# asserted through the plan-known ci_subject output rather than by decoding the
+# asserted through the plan-known ci_sub_pattern output rather than by decoding the
 # trust document.
 
 run "ci_role_trust_is_main_ref_only_for_one_repo" {
@@ -16,8 +16,8 @@ run "ci_role_trust_is_main_ref_only_for_one_repo" {
   # The hello CI role trusts exactly one repo's main ref: nothing wider, no
   # wildcard ref, no second repo. caddy has no CI role at all.
   assert {
-    condition     = module.hello.ci_subject == "repo:etoews/wkx-hello:ref:refs/heads/main"
-    error_message = "The hello CI role must trust exactly the wkx-hello repo's main ref (repo:etoews/wkx-hello:ref:refs/heads/main)."
+    condition     = module.hello.ci_sub_pattern == "repo:etoews@*/wkx-hello@*:ref:refs/heads/main"
+    error_message = "The hello CI role must trust exactly the wkx-hello repo's main ref (sub repo:etoews@*/wkx-hello@*:ref:refs/heads/main): pinned owner and repo, main ref only, no second repo."
   }
 
   assert {
