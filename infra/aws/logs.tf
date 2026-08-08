@@ -1,13 +1,8 @@
 # One log group per service (naming table, design spec §6); Terraform owns
 # creation so every group is tagged and retention-bounded. The awslogs
-# driver and the CloudWatch agent only ever write (iam.tf).
-resource "aws_cloudwatch_log_group" "hello" {
-  name              = "/wkx/hello/prod"
-  retention_in_days = 7
-
-  tags = { Name = "/wkx/hello/prod", Service = "hello", Env = "prod" }
-}
-
+# driver and the CloudWatch agent only ever write (iam.tf). Per-project log
+# groups live with their project (hello's is in hello.tf); this file holds the
+# platform-level and shared groups.
 resource "aws_cloudwatch_log_group" "caddy" {
   # 30 days, not 7: access logs feed the request-rate metric and answer
   # traffic questions after the fact.

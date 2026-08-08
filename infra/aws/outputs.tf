@@ -50,12 +50,27 @@ output "instance_profile_name" {
 
 output "caddy_ecr_repository_url" {
   description = "ECR repository URL for the platform Caddy image."
-  value       = aws_ecr_repository.caddy.repository_url
+  value       = module.caddy.repository_url
 }
 
 output "hello_ecr_repository_url" {
   description = "ECR repository URL for the hello image."
-  value       = aws_ecr_repository.hello.repository_url
+  value       = module.hello.repository_url
+}
+
+output "github_oidc_provider_arn" {
+  description = "ARN of the account's GitHub Actions OIDC provider (the Federated principal every per-project CI role trusts)."
+  value       = aws_iam_openid_connect_provider.github.arn
+}
+
+output "deploy_bucket_name" {
+  description = "Name of the shared deploy bucket (ADR 0024); GitHub Actions uploads bundles here under deploy/<service>/<sha>/."
+  value       = aws_s3_bucket.deploy.bucket
+}
+
+output "hello_ci_role_arn" {
+  description = "ARN of the wkx-hello CI push/deploy role (assumed via OIDC from the repo's main ref)."
+  value       = module.hello.ci_role_arn
 }
 
 output "host_ipv6_address" {

@@ -1,26 +1,19 @@
-# Image repositories for the platform's own images, named wkx/<service> to
-# match the path-style /wkx/<service>/... namespacing of SSM parameters and
-# log groups. Per-service resources: Service tag, no Env (images are
-# per-commit; the env decides which tag deploys where). Lifecycle policies
-# are an M6 deliverable with the ecr-repo module, which these migrate into.
-resource "aws_ecr_repository" "caddy" {
-  name                 = "wkx/caddy"
-  image_tag_mutability = "IMMUTABLE"
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-
-  tags = { Name = "wkx/caddy", Service = "caddy" }
+# Platform-owned image repositories run through the reusable ecr-repo module,
+# named wkx/<service> to match the path-style /wkx/<service>/... namespacing of
+# SSM parameters and log groups. The module adds the M6 lifecycle policy
+# (30-day expiry plus untagged cleanup). Per-project app repositories live in
+# their own files (for example hello.tf); this file holds the platform's own.
+#
+# caddy is instantiated WITHOUT a github_repo, so it gets no CI role: the
+# platform builds and pushes the Caddy image itself (M6.1), not an app repo.
+module "caddy" {
+  source  = "./modules/ecr-repo"
+  service = "caddy"
 }
 
-resource "aws_ecr_repository" "hello" {
-  name                 = "wkx/hello"
-  image_tag_mutability = "IMMUTABLE"
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-
-  tags = { Name = "wkx/hello", Service = "hello" }
+# Adopt the pre-module repository into the module so it is not destroyed and
+# recreated (which would drop every pushed image).
+moved {
+  from = aws_ecr_repository.caddy
+  to   = module.caddy.aws_ecr_repository.this
 }

@@ -102,6 +102,34 @@ resource "aws_iam_role_policy" "ssm_params_read" {
   })
 }
 
+# Read-only access to the deploy bucket: the on-box deploy script pulls each
+# project's bundle from deploy/<service>/<sha>/ (ADR 0024). List is scoped to
+# the deploy/ prefix; the box never needs the rest of the bucket, and never the
+# state bucket (which holds the DNS-01 token, F-001). Same role, no second one.
+resource "aws_iam_role_policy" "deploy_bucket_read" {
+  name = "deploy-bucket-read"
+  role = aws_iam_role.host.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "DeployBundleGet"
+        Effect   = "Allow"
+        Action   = "s3:GetObject"
+        Resource = "${aws_s3_bucket.deploy.arn}/deploy/*"
+      },
+      {
+        Sid       = "DeployBundleList"
+        Effect    = "Allow"
+        Action    = "s3:ListBucket"
+        Resource  = aws_s3_bucket.deploy.arn
+        Condition = { StringLike = { "s3:prefix" = "deploy/*" } }
+      },
+    ]
+  })
+}
+
 resource "aws_iam_instance_profile" "host" {
   name = "wkx-host"
   role = aws_iam_role.host.name
