@@ -181,30 +181,20 @@ M0 to M5 are complete. Carry-forward notes live under the most recently complete
 - [x] Rollback has no escape hatch: `git revert` on the app repo followed by a rebuild and redeploy is the only rollback path. There is no "redeploy an older image" button and no image kept past the lifecycle window as a rollback store; a rollback is a normal forward deploy of the reverted commit. This keeps one code path for every deploy and keeps git the single source of what is live.
 
 **Hands-on artifact**
-- [ ] Push to `wkx-hello` main → deployed in under 2 minutes.
-- [ ] Roll back via `git revert` → previous version live.
+- [x] Push to `wkx-hello` main → deployed in under 2 minutes.
+- [x] Roll back via `git revert` → previous version live.
 
-**M6 carry-forward**
-
-Everything ticked above is code-complete on `feat/m6-cicd-pipeline`. The
-remainder is operator-gated: it needs the public GitHub repo, an Actions
-secret, and the live Host, and a green prod deploy unblocks it. In order:
-
-- [ ] Apply the M6 Terraform to the platform account (OIDC provider, `ecr-repo`
-  module, `wkx/caddy` and `wkx/hello` repos, deploy bucket, and the Host
-  instance-role deploy-bucket read grant).
-- [ ] Create and push the public `wkx-hello` GitHub repo.
-- [ ] Set the `wkx-hello` Actions secret `AWS_DEPLOY_ROLE_ARN` to the
-  `wkx-ci-hello` role ARN (masked, since the repo is public).
-- [ ] Ensure the Host has the platform repo checked out at
-  `/home/platform/wkx-platform` so the SSM deploy can update and run it.
-- [ ] First push to `wkx-hello` main deploys hello to prod, then capture the two
-  hands-on artefacts above (serving in under two minutes, git-revert rollback).
-- [ ] Once the prod deploy is green, delete the now single-copy `hello/`
-  directory from `wkx-platform` (it lives in `wkx-hello` from then on) and
-  correct any document that still places it in the platform repo.
-- [ ] Retire the hand-maintained interpolated Env-file for hello on the Host;
-  the deploy script now renders it from SSM before every `up`.
+**M6 delivered (2026-08-08).** The pipeline is live end to end: a merge to
+`wkx-hello` main builds natively on ARM, gates on Trivy (`--ignore-unfixed`),
+pushes to ECR by `<sha>`, uploads the matching deploy bundle, and deploys via
+SSM RunCommand, with the workflow going green only once the Host reports the
+container healthy and the hostname probe passes. hello now ships solely from
+the public `wkx-hello` repo (its source was deleted from this repo), the Host
+carries no hand-maintained interpolated Env-file for it, and both hands-on
+artefacts were captured against `https://hello.wingkongexchange.dev`. Two
+issues surfaced during cutover and were fixed in the pipeline: GitHub's OIDC
+`sub` now embeds immutable owner/repo ids (the CI role trust pins them), and
+the runtime image is a lean multi-stage build so the scan gate stays green.
 
 ---
 
