@@ -152,6 +152,7 @@ M0 to M5 are complete. Carry-forward notes live under the most recently complete
 - **M6**: after any Host replacement the Caddy snippet must be re-rendered (`hello/caddy.snippet` → `/etc/caddy/Caddyfile.d/hello-prod.caddy`, with the platform-owned `Caddyfile.d` dir recreated first). Done by hand in M5 and recorded in `m5-infra-state.local.md`; the deploy script should absorb it.
 - **M8**: the `template/` compose file should copy hello's `env_file` block, comment and all, so the render-before-up contract survives the copy.
 - **Operations**: after any Host replacement, `wkx-host-cpu-credits` sits in genuine ALARM for roughly 5 to 6 hours while the credit bank refills (standard mode). Expected, and it self-resolves.
+- **Security**: a red team security review ran on 2026-07-10 against the repo and the public edge. The report stays out of the repo (`.scratch/`, gitignored). Its actionable findings are woven into M6 to M10 below, tagged F-001 to F-010; findings assessed as not actionable on this single-host architecture become the M10 risk-acceptance ADRs.
 
 ---
 
@@ -171,6 +172,9 @@ M0 to M5 are complete. Carry-forward notes live under the most recently complete
 - [ ] Extract "hello" to its own repo `wkx-hello` and wire it through the new pipeline.
 - [ ] Deploy script (`tools/deploy/`) **requires** `--env` with no default. Forgetting it errors out with valid env patterns. CI workflows hardcode their target env (PR-open: `pr-<N>`; main-merge: `prod`).
 - [ ] Parameterise the `awslogs-group` env in the `compose.cloud.yml` overlays (hardcoded `prod` since M4, fine for its prod-only scope) so PR-env container logs land in `/wkx/<service>/<env>` rather than the prod group.
+- [ ] Deploy workflow gates on the ECR scan: the pipeline fails when the pushed image's scan-on-push results report high or critical findings (F-006).
+- [ ] Guard-rail, verified in the role policy: the GHA OIDC deploy role gets ECR push and `ssm send-command` only, and never gains read access to the Terraform state bucket. State carries the DNS-01 token, so a state-reading CI role would turn an Actions compromise into DNS control of the zone (F-001).
+- [ ] hello implements `do_HEAD` (same headers as `do_GET`, no body), landed during the extraction to `wkx-hello`. `BaseHTTPRequestHandler` otherwise answers HEAD with 501, which breaks clean uptime checks and follows the app into every project copied from it (F-010).
 
 **Hands-on artifact**
 - [ ] Push to `wkx-hello` main → deployed in under 2 minutes.
@@ -190,7 +194,8 @@ M0 to M5 are complete. Carry-forward notes live under the most recently complete
 - [ ] `renovate.json` policy:
   - Auto-merge minor + patch when CI is green.
   - Major versions stay manual.
-- [ ] Ubuntu unattended-upgrades enabled on the box for security patches.
+- [ ] Base images pinned by digest, with Renovate refreshing the digests. The mutable `python:3.13-slim` and `caddy:2` tags mean rebuilding an old commit can pull different base image content (F-006).
+- [ ] Ubuntu unattended-upgrades enabled on the box for security patches. Cheap to pull forward: it is a small cloud-init addition that can ride the next Host replacement rather than wait for this milestone (F-007).
 
 **Hands-on artifact**
 - [ ] First Renovate auto-PR appears in some repo, CI passes, it auto-merges.
@@ -201,9 +206,14 @@ M0 to M5 are complete. Carry-forward notes live under the most recently complete
 ## M8: "Add a project" workflow
 
 **Deliverables**
+- [ ] Platform contract hardening, landed before the template freezes the contract into every future repo (F-003, F-004, F-005):
+  - Named Caddy `(security_headers)` snippet imported by every app snippet, covering `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, and a frame-ancestors CSP. The baseline must be a snippet each host block imports. Headers set in the wildcard block never reach the more-specific app host blocks, because Caddy routes each request to its most specific site block.
+  - HSTS zone-wide via Cloudflare's `security_header` zone setting in Terraform.
+  - Free-plan Cloudflare edge baseline in Terraform: Bot Fight Mode, the one free rate-limiting rule, browser integrity check.
+  - Hardened Compose defaults in `platform/`, hello, and `template/`: `cap_drop: [ALL]`, `security_opt: [no-new-privileges:true]`, `pids_limit`, plus `read_only` with `tmpfs` where the service allows it. Caddy keeps `NET_BIND_SERVICE` and its writable `/data` and `/config` volumes.
 - [ ] Reference project at `wkx-platform/template/`, a real, CI-tested working app (the `hello` smoke-test app from M3 doubles as the canonical reference). Contains:
   - `Dockerfile` (multi-stage, ARM64; flag for amd64 opt-in)
-  - `compose.yml` (service + named volume + `mem_limit` + `cpus`)
+  - `compose.yml` (service + named volume + `mem_limit` + `cpus` + the hardening defaults above)
   - `caddy.snippet` (env-templated host block)
   - `.github/workflows/deploy.yml`
   - `renovate.json`
@@ -216,7 +226,7 @@ M0 to M5 are complete. Carry-forward notes live under the most recently complete
   4. `gh repo create wkx-<name> --private --push`.
   5. Open a PR against `wkx-platform` adding `infra/projects/<name>.tf` (uses the M6 `ecr-repo` module).
 - [ ] Platform contract documented in `wkx-platform/CLAUDE.md` so AI agents can extend new projects in a conformant way.
-- [ ] Demo: scaffold and deploy a SQLite-backed "notes" app end-to-end.
+- [ ] Demo: scaffold and deploy a SQLite-backed "notes" app end-to-end. Demo data is disposable by design; apps with data worth keeping wait for the M10 backup and restore controls (F-008).
 
 **Hands-on artifact**
 - [ ] `uv run wkx-scaffold notes` → new `wkx-notes` repo on GitHub + PR opened against `wkx-platform`.
@@ -248,7 +258,9 @@ M0 to M5 are complete. Carry-forward notes live under the most recently complete
 
 **Deliverables**
 - [ ] IAM least-privilege audit: every policy reviewed and tightened.
-- [ ] Backups:
+- [ ] Terraform state treated as secret-bearing: the DNS-01 token lives in state by design, so audit the state bucket for operator-only access and confirm encryption and versioning still hold (F-001).
+- [ ] ADRs recording the risks the security review surfaced and this architecture accepts (F-002, F-009): single-host blast radius (the host role reads all of `/wkx/*`, and docker group membership is root-equivalent, so host compromise crosses every service boundary regardless of IAM scoping) and open host egress (no NAT or egress proxy per the cost constraints). Weigh VPC flow logs as compensating detection for the egress acceptance.
+- [ ] Backups (F-008):
   - EBS snapshots daily, 7-day retention, via Data Lifecycle Manager.
   - Restic on the box: daily backup of `/srv/data` to S3, encrypted with a passphrase stored in SSM.
 - [ ] Restore drill: nuke a service's `/srv/data/<service>/<env>/` directory and restore from restic. Verify the service comes back healthy.
@@ -256,7 +268,7 @@ M0 to M5 are complete. Carry-forward notes live under the most recently complete
   - Recover from full instance loss
   - Resize the box
   - Add a TLD (first-class app onboarding)
-  - Rotate Cloudflare API token
+  - Rotate Cloudflare API token (`terraform apply -replace` on the token resource, then re-render and redeploy Caddy; also the response if Terraform state exposure is ever suspected, F-001)
 - [ ] **Buy 1-yr Compute Savings Plan** sized at ~USD $17/mo (covers t4g.medium 24/7).
 
 **Hands-on artifact**
