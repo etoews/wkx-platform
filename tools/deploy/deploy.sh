@@ -97,6 +97,13 @@ tag_var="$(printf '%s' "$service" | tr 'a-z-' 'A-Z_')_TAG"
 export ECR_REGISTRY="$registry"
 export "${tag_var}=${tag}"
 export ENV="$env"
+
+# Authenticate Docker to ECR before the pull. The instance role grants ecr
+# pull, but the login token is short lived, so log in on every deploy rather
+# than trusting a stale one (a Host that has not deployed in ~12h has none).
+aws ecr get-login-password --region "$region" \
+  | docker login --username AWS --password-stdin "$registry"
+
 docker compose -f compose.yml -f compose.cloud.yml -p "$project" up -d
 
 # 5. Render the Caddy snippet with the documented hostname, drop it, reload
