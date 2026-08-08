@@ -16,8 +16,8 @@ run "ci_role_trust_is_main_ref_only_for_one_repo" {
   # The hello CI role trusts exactly one repo's main ref: nothing wider, no
   # wildcard ref, no second repo. caddy has no CI role at all.
   assert {
-    condition     = module.hello.ci_sub_pattern == "repo:etoews@*/wkx-hello@*:ref:refs/heads/main"
-    error_message = "The hello CI role must trust exactly the wkx-hello repo's main ref (sub repo:etoews@*/wkx-hello@*:ref:refs/heads/main): pinned owner and repo, main ref only, no second repo."
+    condition     = module.hello.ci_sub_pattern == "repo:etoews@634901/wkx-hello@1327570828:ref:refs/heads/main"
+    error_message = "The hello CI role must trust exactly the wkx-hello repo's main ref by immutable id (sub repo:etoews@634901/wkx-hello@1327570828:ref:refs/heads/main): pinned owner, repo, and ids, main ref only, no wildcards."
   }
 
   assert {

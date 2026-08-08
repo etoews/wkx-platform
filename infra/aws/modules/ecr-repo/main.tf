@@ -18,12 +18,15 @@ locals {
   repository_arn = "arn:aws:ecr:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:repository/${local.repository_name}"
 
   # The CI role trusts this repo's main ref only. AWS requires the trust to
-  # condition on `sub` (or job_workflow_ref), and GitHub's OIDC `sub` now embeds
-  # immutable numeric owner/repo IDs (repo:owner@<id>/name@<id>:ref:...) that a
-  # reusable module cannot know ahead of time. So we StringLike-match the pinned
-  # owner login and repo name with only the IDs wildcarded, still anchored to
-  # refs/heads/main (a PR carries a different ref, so it cannot assume the role).
-  ci_sub_pattern = local.create_ci_role ? "repo:etoews@*/${var.github_repo}@*:ref:refs/heads/main" : null
+  # condition on `sub` (or job_workflow_ref), and GitHub's OIDC `sub` embeds
+  # immutable numeric owner/repo IDs (repo:owner@<id>/name@<id>:ref:...). When
+  # those IDs are supplied the trust pins the exact sub, so a deleted-and-
+  # recreated repo or a reused owner login cannot assume the role; when they are
+  # not, the IDs are wildcarded (owner login and repo name still pinned). Either
+  # way the ref is anchored to main, so a PR (different ref) cannot assume it.
+  ci_owner_seg   = var.github_owner_id != null ? var.github_owner_id : "*"
+  ci_repo_seg    = var.github_repo_id != null ? var.github_repo_id : "*"
+  ci_sub_pattern = local.create_ci_role ? "repo:etoews@${local.ci_owner_seg}/${var.github_repo}@${local.ci_repo_seg}:ref:refs/heads/main" : null
 
   ci_assume_role_policy = local.create_ci_role ? jsonencode({
     Version = "2012-10-17"

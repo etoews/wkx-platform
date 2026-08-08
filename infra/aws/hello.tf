@@ -11,6 +11,8 @@ module "hello" {
 
   service            = "hello"
   github_repo        = "wkx-hello"
+  github_owner_id    = "634901"     # github.com/etoews (public, immutable)
+  github_repo_id     = "1327570828" # github.com/etoews/wkx-hello (public, immutable)
   oidc_provider_arn  = aws_iam_openid_connect_provider.github.arn
   deploy_bucket_name = aws_s3_bucket.deploy.bucket
 }
