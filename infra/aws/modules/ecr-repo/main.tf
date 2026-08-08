@@ -79,6 +79,19 @@ locals {
         ]
       },
       {
+        Sid    = "SsmReadOwnCommandResult"
+        Effect = "Allow"
+        Action = [
+          "ssm:ListCommandInvocations",
+          "ssm:GetCommandInvocation",
+        ]
+        # Read-only: lets the deploy workflow wait on its own send-command and
+        # gate the green tick on the on-box deploy actually succeeding. Neither
+        # action supports resource-level scoping, so Resource is *; both expose
+        # only command-invocation status and output, never instance control.
+        Resource = "*"
+      },
+      {
         Sid      = "DeployBundlePutOwnPrefix"
         Effect   = "Allow"
         Action   = "s3:PutObject"
