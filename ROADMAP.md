@@ -160,9 +160,9 @@ M0 to M5 are complete. Carry-forward notes live under the most recently complete
 ## M6: CI/CD
 
 **Deliverables**
-- [ ] Terraform module `ecr-repo` creates an ECR repo + the IAM role/trust for OIDC GHA push, scoped per project. Includes lifecycle policy: expire all images over 30 days. The finer per-env split (a shorter `pr-*` preview-tag rule) is deferred to M11 with the preview-env feature that produces those tags. Older rollbacks rebuild from git. The `ecr-repo` module takes no `env` input: an ECR repository is per-service, not per-env (one repo per service holds every env's images, the `<sha>` tag decides which env deploys).
-- [ ] GitHub OIDC provider configured in the platform account.
-- [ ] GHA workflow template:
+- [x] Terraform module `ecr-repo` creates an ECR repo + the IAM role/trust for OIDC GHA push, scoped per project. Includes lifecycle policy: expire all images over 30 days. The finer per-env split (a shorter `pr-*` preview-tag rule) is deferred to M11 with the preview-env feature that produces those tags. Older rollbacks rebuild from git. The `ecr-repo` module takes no `env` input: an ECR repository is per-service, not per-env (one repo per service holds every env's images, the `<sha>` tag decides which env deploys).
+- [x] GitHub OIDC provider configured in the platform account.
+- [x] GHA workflow template:
   - Build multi-stage container (`Dockerfile` targets `linux/arm64` by default).
   - Scan the built image with Trivy (`--ignore-unfixed`); fail the job on high or critical findings that have a fix (the deploy gate, ADR 0025).
   - Push to ECR with tag `<sha>`.
@@ -171,18 +171,40 @@ M0 to M5 are complete. Carry-forward notes live under the most recently complete
     - Pulls and unpacks the bundle.
     - Renders the Env-file from SSM (using the M5 render script), then runs `docker compose -p <service>-<env> up -d` (render before up: Compose consumes the Env-file with `required: true`, so it must exist first).
     - Drops the project's Caddy snippet at `/etc/caddy/Caddyfile.d/<service>-<env>.caddy` and reloads Caddy. The deploy script owns both the snippet drop and the reload; Caddy does not pick the snippet up on its own.
-- [ ] Extract "hello" to its own **public** repo `wkx-hello` (it carries no secrets and doubles as the worked example of the platform contract) and wire it through the new pipeline.
-- [ ] Deploy script (`tools/deploy/`) **requires** `--env` with no default. Forgetting it errors out with valid env patterns. CI workflows hardcode their target env (PR-open: `pr-<N>`; main-merge: `prod`).
-- [ ] Parameterise the `awslogs-group` env in the `compose.cloud.yml` overlays (hardcoded `prod` since M4, fine for its prod-only scope) so PR-env container logs land in `/wkx/<service>/<env>` rather than the prod group.
-- [ ] Deploy workflow gates on an in-pipeline Trivy scan (`--ignore-unfixed`) of the built image: the job fails on high or critical findings that have a fix. ECR scan-on-push stays enabled but informational, never gating. No image pushed before M6 had actually been scanned by ECR: buildx wraps each image in an OCI index carrying a provenance attestation, and ECR silently refuses to scan an OCI index, so the old scan-on-push gate would have gated on nothing (F-006, ADR 0025).
-- [ ] Guard-rail, verified in the role policy: the GHA OIDC deploy role gets ECR push, `ssm send-command`, and `PutObject` on its own deploy-bucket prefix, never any state-bucket access. State carries the DNS-01 token, so a state-reading CI role would turn an Actions compromise into DNS control of the zone; the deploy-bucket prefix is scoped per project so one project's CI cannot write another's bundle (F-001, ADR 0024).
-- [ ] hello implements `do_HEAD` (same headers as `do_GET`, no body), landed during the extraction to `wkx-hello`. `BaseHTTPRequestHandler` otherwise answers HEAD with 501, which breaks clean uptime checks and follows the app into every project copied from it (F-010).
-- [ ] Healthcheck contract: every Service's `compose.yml` defines a `healthcheck`, and the deploy script waits for the new container to report healthy before it drops the Caddy snippet and reloads. A container that never becomes healthy fails the deploy and never receives traffic. The reference project carries the block so the contract copies into every project.
-- [ ] Rollback has no escape hatch: `git revert` on the app repo followed by a rebuild and redeploy is the only rollback path. There is no "redeploy an older image" button and no image kept past the lifecycle window as a rollback store; a rollback is a normal forward deploy of the reverted commit. This keeps one code path for every deploy and keeps git the single source of what is live.
+- [x] Extract "hello" to its own **public** repo `wkx-hello` (it carries no secrets and doubles as the worked example of the platform contract) and wire it through the new pipeline.
+- [x] Deploy script (`tools/deploy/`) **requires** `--env` with no default. Forgetting it errors out with valid env patterns. CI workflows hardcode their target env (PR-open: `pr-<N>`; main-merge: `prod`).
+- [x] Parameterise the `awslogs-group` env in the `compose.cloud.yml` overlays (hardcoded `prod` since M4, fine for its prod-only scope) so PR-env container logs land in `/wkx/<service>/<env>` rather than the prod group.
+- [x] Deploy workflow gates on an in-pipeline Trivy scan (`--ignore-unfixed`) of the built image: the job fails on high or critical findings that have a fix. ECR scan-on-push stays enabled but informational, never gating. No image pushed before M6 had actually been scanned by ECR: buildx wraps each image in an OCI index carrying a provenance attestation, and ECR silently refuses to scan an OCI index, so the old scan-on-push gate would have gated on nothing (F-006, ADR 0025).
+- [x] Guard-rail, verified in the role policy: the GHA OIDC deploy role gets ECR push, `ssm send-command`, and `PutObject` on its own deploy-bucket prefix, never any state-bucket access. State carries the DNS-01 token, so a state-reading CI role would turn an Actions compromise into DNS control of the zone; the deploy-bucket prefix is scoped per project so one project's CI cannot write another's bundle (F-001, ADR 0024).
+- [x] hello implements `do_HEAD` (same headers as `do_GET`, no body), landed during the extraction to `wkx-hello`. `BaseHTTPRequestHandler` otherwise answers HEAD with 501, which breaks clean uptime checks and follows the app into every project copied from it (F-010).
+- [x] Healthcheck contract: every Service's `compose.yml` defines a `healthcheck`, and the deploy script waits for the new container to report healthy before it drops the Caddy snippet and reloads. A container that never becomes healthy fails the deploy and never receives traffic. The reference project carries the block so the contract copies into every project.
+- [x] Rollback has no escape hatch: `git revert` on the app repo followed by a rebuild and redeploy is the only rollback path. There is no "redeploy an older image" button and no image kept past the lifecycle window as a rollback store; a rollback is a normal forward deploy of the reverted commit. This keeps one code path for every deploy and keeps git the single source of what is live.
 
 **Hands-on artifact**
 - [ ] Push to `wkx-hello` main → deployed in under 2 minutes.
 - [ ] Roll back via `git revert` → previous version live.
+
+**M6 carry-forward**
+
+Everything ticked above is code-complete on `feat/m6-cicd-pipeline`. The
+remainder is operator-gated: it needs the public GitHub repo, an Actions
+secret, and the live Host, and a green prod deploy unblocks it. In order:
+
+- [ ] Apply the M6 Terraform to the platform account (OIDC provider, `ecr-repo`
+  module, `wkx/caddy` and `wkx/hello` repos, deploy bucket, and the Host
+  instance-role deploy-bucket read grant).
+- [ ] Create and push the public `wkx-hello` GitHub repo.
+- [ ] Set the `wkx-hello` Actions secret `AWS_DEPLOY_ROLE_ARN` to the
+  `wkx-ci-hello` role ARN (masked, since the repo is public).
+- [ ] Ensure the Host has the platform repo checked out at
+  `/home/platform/wkx-platform` so the SSM deploy can update and run it.
+- [ ] First push to `wkx-hello` main deploys hello to prod, then capture the two
+  hands-on artefacts above (serving in under two minutes, git-revert rollback).
+- [ ] Once the prod deploy is green, delete the now single-copy `hello/`
+  directory from `wkx-platform` (it lives in `wkx-hello` from then on) and
+  correct any document that still places it in the platform repo.
+- [ ] Retire the hand-maintained interpolated Env-file for hello on the Host;
+  the deploy script now renders it from SSM before every `up`.
 
 ---
 
