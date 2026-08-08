@@ -110,6 +110,24 @@ _Avoid_: dotenv, .env (ambiguous with the Env-file Interpolated), secrets file
 The gitignored `.env` beside a compose file, supplying `${VAR}` interpolation values (registry, image tags, `ENV`) to Compose itself. Hand-maintained on a Host, never contains secrets; its values shape the compose configuration and never enter a container's environment. In prose: "the interpolated env-file".
 _Avoid_: .env (ambiguous with the Env-file), interpolation env
 
+### Deploys
+
+**Deploy**:
+One shipment of a Service version to a Host for a named env: build and scan the image, push it to ECR, upload the Deploy bundle, then on the box render the Env-file, `docker compose up`, drop the Caddy snippet, and reload Caddy. Always for one Service in one env, and always names that env. A rollback is a normal forward Deploy of a reverted commit; there is no separate rollback path.
+_Avoid_: release, ship, push (push is the git action that triggers a Deploy)
+
+**Deploy workflow**:
+The GitHub Actions workflow in a Project repo (`.github/workflows/deploy.yml`) that runs a Deploy: OIDC into the scoped AWS role, build, Trivy scan gate, ECR push, Deploy-bundle upload, and the `aws ssm send-command` that triggers the on-box work. It hardcodes its target env (`pr-<N>` on PR open, `prod` on main merge), never defaulting it.
+_Avoid_: pipeline, CI (CI is the lint and test side; the Deploy workflow is the CD side)
+
+**Deploy script**:
+The script the Deploy workflow invokes on the Host via SSM RunCommand (sourced from `tools/deploy/`, carried in the Deploy bundle). It renders the Env-file before `compose up`, runs `docker compose -p <service>-<env> up -d`, and owns the Caddy snippet drop and reload. Requires `--env` with no default.
+_Avoid_: deploy hook, entrypoint
+
+**Deploy bundle**:
+The per-commit tarball of a Deploy's on-box files (the compose file and its `compose.cloud.yml` overlay, the Caddy snippet, the Deploy script, and the render script), uploaded to the deploy bucket under a per-project, sha-addressed prefix and pulled down by the Host at deploy time. The image travels through ECR; the bundle carries everything else. One `<sha>` names both.
+_Avoid_: artefact (ambiguous, the image is also an artefact), payload
+
 ### Operational status
 
 **Status**:

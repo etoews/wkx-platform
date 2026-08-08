@@ -110,12 +110,12 @@ Four layers, each with one job and a clean interface to the next. Same shape on 
 
 **Platform ↔ project contract:**
 
-1. Project repo's GHA workflow uses GitHub OIDC to assume an AWS role scoped to its own ECR repo + SSM RunCommand.
-2. Workflow builds a multi-stage container (default ARM64; opt-in amd64 for projects that also run on the home server) and pushes to ECR.
-3. Workflow invokes `aws ssm send-command` with a script that pulls the image, renders the env-file from SSM Parameter Store, and runs `docker compose -p <service>-<env> up -d`.
-4. The host's Caddy reload picks up the snippet at `/etc/caddy/Caddyfile.d/<service>-<env>.caddy`.
+1. Project repo's GHA workflow uses GitHub OIDC to assume an AWS role scoped to its own ECR repo, its own deploy-bucket prefix, and SSM RunCommand.
+2. Workflow builds a multi-stage container (default ARM64; opt-in amd64 for projects that also run on the home server), scans it with Trivy (the deploy gate, ADR 0025), pushes it to ECR, and uploads the deploy bundle (compose files, Caddy snippet, deploy and render scripts) to the deploy bucket under a sha-addressed prefix (ADR 0024).
+3. Workflow invokes `aws ssm send-command` with the bundle key; the on-box deploy script unpacks the bundle, renders the Env-file from SSM Parameter Store, and then runs `docker compose -p <service>-<env> up -d`. The render runs before the up, so the Env-file exists when Compose reads it (Compose consumes it with `required: true`).
+4. The same deploy script drops the Caddy snippet at `/etc/caddy/Caddyfile.d/<service>-<env>.caddy` and reloads Caddy. The snippet drop and the reload are the deploy script's job, not something Caddy does on its own.
 
-Adding a project = `wkx-scaffold` script clones `wkx-platform/template/` into a new repo, runs name/port/hostname substitutions, initializes git, creates the GitHub repo, and opens a PR against `wkx-platform` adding `infra/projects/<name>.tf` (creating ECR repo, log group, DNS record).
+Adding a project = `wkx-scaffold` script clones `wkx-platform/template/` into a new repo, runs name/port/hostname substitutions, initialises git, creates the GitHub repo, and opens a PR against `wkx-platform` adding the project's Terraform. The per-project bundle in `infra/projects/<name>.tf` creates the ECR repo and log group; the matching DNS record is added in the `cloudflare/` root, where all DNS records live, never in the per-project bundle.
 
 **Why no templating library (cookiecutter/copier)?** For ≤10 personal projects with AI-assisted dev, a generic template tool is more weight than it earns. The reference project is itself a real, CI-tested working app (the M3 `hello` smoke-test app doubles as the reference). Cross-cutting changes ("add HEALTHCHECK to every Dockerfile") are handled by AI fanning out PRs to the `wkx-*` repos rather than `copier update`. The platform contract — what files a conformant project must contain and how they look — lives in `wkx-platform/CLAUDE.md`, read directly by AI agents.
 
@@ -127,7 +127,7 @@ wkx-platform/
 │   ├── aws/                  account, VPC, EC2, IAM, ECR, S3, CW
 │   ├── cloudflare/           zones, DNS records, page rules
 │   ├── modules/              reusable: ecr-repo, log-group, dns-record
-│   └── projects/             one .tf per project (ECR + log group + DNS)
+│   └── projects/             one .tf per project (ECR + log group; DNS records live in cloudflare/)
 ├── host/                     Layer 2
 │   ├── cloud-init.yaml       AWS Graviton bootstrap
 │   ├── bootstrap.sh          on-prem Ubuntu bootstrap
@@ -187,12 +187,12 @@ The public hostname hides the env for `prod` (so users see `hello.wingkongexchan
 
 **Implementation rules baked into M0–M10:**
 
-1. Every per-project Terraform module **requires** an `env` input — no default. (Account-level/host-level infra is not per-env and uses no env dimension.)
+1. Every per-project Terraform module that carries an env dimension **requires** an `env` input, with no default. The rule is scoped to resources that actually vary by env. A per-service ECR repository deliberately has no env dimension (one repo per service holds every env's images, images are per-commit `<sha>`, and the tag decides which env deploys), so the `ecr-repo` module takes no `env` input. Account-level and host-level infra is not per-env either and uses no env dimension.
 2. The deploy script (`tools/deploy/`) **requires** `--env` — no default. Forgetting the flag errors out with the list of valid env patterns.
 3. CI workflows hardcode their target env: PR-open jobs deploy to `pr-${{ github.event.number }}`; `main`-merge jobs deploy to `prod`. Never defaulted.
 4. The reference project renders `${ENV}` placeholders at deploy time (via the scaffold script's substitution and the deploy script's env-file injection).
 5. The Compose service template includes `mem_limit` and `cpus` so previews can't starve prod.
-6. ECR lifecycle policy: expire `prod` tags after 30 days; expire branch tags after 14 days. For older rollbacks, rebuild from git (Renovate-pinned deps make this reliable).
+6. ECR lifecycle policy: expire all images over 30 days. For older rollbacks, rebuild from git (Renovate-pinned deps make this reliable). The finer per-env split (a shorter `pr-*` preview-tag rule) is deferred to M11 with the preview-env feature that produces those tags.
 
 **Principle:** Environments are always explicit. Defaulting to a "common" env hides intent and makes accidental prod-deploys easy. Both humans and CI workflows must name the env they target.
 
@@ -307,7 +307,7 @@ Detailed milestones, deliverables, and hands-on artifacts live in `ROADMAP.md` a
 | Cloudflare IP ranges change, SG blocks legit traffic | Terraform data source pulls latest list; refresh as part of monthly maintenance. |
 | Renovate floods PRs | Start strict (auto-merge only minor/patch with CI green); tune over time. |
 | AWS Free Tier expiry surprise on month 13 | Billing alarm at 80% of NZD $50 catches it. |
-| Preview envs starve prod for memory | `mem_limit`/`cpus` on every Compose service; ECR lifecycle expires branch tags after 14 days; t4g.large is documented upgrade. |
+| Preview envs starve prod for memory | `mem_limit`/`cpus` on every Compose service; ECR lifecycle expires all images over 30 days (a shorter `pr-*` rule lands with previews in M11); t4g.large is documented upgrade. |
 | ARM-only build breaks home server deploy | Per-project opt-in for amd64 multi-arch (cookiecutter has a flag). Default ARM. |
 | Loss of access to mgmt account root credentials | Strong MFA, store recovery codes offline, mgmt account holds no workloads so blast radius is low. |
 

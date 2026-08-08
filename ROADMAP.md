@@ -17,6 +17,7 @@ M0 to M5 are complete. Carry-forward notes live under the most recently complete
 | [M4: Observability](#m4-observability) | M | ✅ Complete |
 | [M5: Secrets + config](#m5-secrets--config) | M | ✅ Complete |
 | [M6: CI/CD](#m6-cicd) | L | ⬜ Next |
+| [M6.1: Platform CI/CD](#m61-platform-cicd) | M | ⬜ Not started |
 | [M7: Auto-upgrades](#m7-auto-upgrades) | M | ⬜ Not started |
 | [M8: "Add a project" workflow](#m8-add-a-project-workflow) | L | ⬜ Not started |
 | [M9: On-prem mirror](#m9-on-prem-mirror) | M | ⬜ Not started |
@@ -25,7 +26,7 @@ M0 to M5 are complete. Carry-forward notes live under the most recently complete
 
 **Sizes:** S = ≤ a session. M = a focused weekend or 2 evenings. L = several sessions, expect debugging.
 
-**Critical path:** M0 → M1 → M2 → M3 is sequential. M4/M5 can run in parallel after M3. M7–M10 are independently orderable. M11 is opt-in.
+**Critical path:** M0 → M1 → M2 → M3 is sequential. M4/M5 can run in parallel after M3. M6.1 follows M6 (it reuses M6's scan gate and deploy machinery for the platform repo itself). M7–M10 are independently orderable. M11 is opt-in.
 
 ---
 
@@ -159,26 +160,45 @@ M0 to M5 are complete. Carry-forward notes live under the most recently complete
 ## M6: CI/CD
 
 **Deliverables**
-- [ ] Terraform module `ecr-repo` creates an ECR repo + the IAM role/trust for OIDC GHA push, scoped per project. Includes lifecycle policy: expire `prod` tags after 30 days, expire branch tags after 14 days. Older rollbacks rebuild from git.
+- [ ] Terraform module `ecr-repo` creates an ECR repo + the IAM role/trust for OIDC GHA push, scoped per project. Includes lifecycle policy: expire all images over 30 days. The finer per-env split (a shorter `pr-*` preview-tag rule) is deferred to M11 with the preview-env feature that produces those tags. Older rollbacks rebuild from git. The `ecr-repo` module takes no `env` input: an ECR repository is per-service, not per-env (one repo per service holds every env's images, the `<sha>` tag decides which env deploys).
 - [ ] GitHub OIDC provider configured in the platform account.
 - [ ] GHA workflow template:
   - Build multi-stage container (`Dockerfile` targets `linux/arm64` by default).
+  - Scan the built image with Trivy (`--ignore-unfixed`); fail the job on high or critical findings that have a fix (the deploy gate, ADR 0025).
   - Push to ECR with tag `<sha>`.
-  - Trigger deploy via `aws ssm send-command` invoking a script that:
-    - Renders the Env-file from SSM (using the M5 render script).
-    - Pulls image, runs `docker compose -p <service>-<env> up -d`.
-    - Drops the project's caddy snippet at `/etc/caddy/Caddyfile.d/<service>-<env>.caddy`.
-    - Reloads Caddy.
-- [ ] Extract "hello" to its own repo `wkx-hello` and wire it through the new pipeline.
+  - Build the deploy bundle (compose file, `compose.cloud.yml` overlay, Caddy snippet, deploy script, render script) and upload it to the deploy bucket under the project's own sha-addressed prefix (ADR 0024).
+  - Trigger deploy via `aws ssm send-command`, passing only the bundle key. The on-box deploy script:
+    - Pulls and unpacks the bundle.
+    - Renders the Env-file from SSM (using the M5 render script), then runs `docker compose -p <service>-<env> up -d` (render before up: Compose consumes the Env-file with `required: true`, so it must exist first).
+    - Drops the project's Caddy snippet at `/etc/caddy/Caddyfile.d/<service>-<env>.caddy` and reloads Caddy. The deploy script owns both the snippet drop and the reload; Caddy does not pick the snippet up on its own.
+- [ ] Extract "hello" to its own **public** repo `wkx-hello` (it carries no secrets and doubles as the worked example of the platform contract) and wire it through the new pipeline.
 - [ ] Deploy script (`tools/deploy/`) **requires** `--env` with no default. Forgetting it errors out with valid env patterns. CI workflows hardcode their target env (PR-open: `pr-<N>`; main-merge: `prod`).
 - [ ] Parameterise the `awslogs-group` env in the `compose.cloud.yml` overlays (hardcoded `prod` since M4, fine for its prod-only scope) so PR-env container logs land in `/wkx/<service>/<env>` rather than the prod group.
-- [ ] Deploy workflow gates on the ECR scan: the pipeline fails when the pushed image's scan-on-push results report high or critical findings (F-006).
-- [ ] Guard-rail, verified in the role policy: the GHA OIDC deploy role gets ECR push and `ssm send-command` only, and never gains read access to the Terraform state bucket. State carries the DNS-01 token, so a state-reading CI role would turn an Actions compromise into DNS control of the zone (F-001).
+- [ ] Deploy workflow gates on an in-pipeline Trivy scan (`--ignore-unfixed`) of the built image: the job fails on high or critical findings that have a fix. ECR scan-on-push stays enabled but informational, never gating. No image pushed before M6 had actually been scanned by ECR: buildx wraps each image in an OCI index carrying a provenance attestation, and ECR silently refuses to scan an OCI index, so the old scan-on-push gate would have gated on nothing (F-006, ADR 0025).
+- [ ] Guard-rail, verified in the role policy: the GHA OIDC deploy role gets ECR push, `ssm send-command`, and `PutObject` on its own deploy-bucket prefix, never any state-bucket access. State carries the DNS-01 token, so a state-reading CI role would turn an Actions compromise into DNS control of the zone; the deploy-bucket prefix is scoped per project so one project's CI cannot write another's bundle (F-001, ADR 0024).
 - [ ] hello implements `do_HEAD` (same headers as `do_GET`, no body), landed during the extraction to `wkx-hello`. `BaseHTTPRequestHandler` otherwise answers HEAD with 501, which breaks clean uptime checks and follows the app into every project copied from it (F-010).
+- [ ] Healthcheck contract: every Service's `compose.yml` defines a `healthcheck`, and the deploy script waits for the new container to report healthy before it drops the Caddy snippet and reloads. A container that never becomes healthy fails the deploy and never receives traffic. The reference project carries the block so the contract copies into every project.
+- [ ] Rollback has no escape hatch: `git revert` on the app repo followed by a rebuild and redeploy is the only rollback path. There is no "redeploy an older image" button and no image kept past the lifecycle window as a rollback store; a rollback is a normal forward deploy of the reverted commit. This keeps one code path for every deploy and keeps git the single source of what is live.
 
 **Hands-on artifact**
 - [ ] Push to `wkx-hello` main → deployed in under 2 minutes.
 - [ ] Roll back via `git revert` → previous version live.
+
+---
+
+## M6.1: Platform CI/CD
+
+M6 puts every `wkx-*` app repo on the pipeline. The platform repo builds and ships two things of its own, the Caddy image and the platform stack, and until now both moved by hand. M6.1 puts the platform repo on the same rails.
+
+**Deliverables**
+- [ ] CI for the platform repo: on every PR, lint and test the code that already has tooling. `terraform fmt -check`, `terraform validate`, and `terraform test` across the roots (`bootstrap/`, `aws/`, `cloudflare/`, `mgmt/`); shellcheck the bash under `host/` and `tools/`; and the `docs/standards/python.md` toolchain (ruff, ty, pytest) for anything under `tools/` once Python lands there.
+- [ ] Caddy image pipeline: build `platform/caddy/` through the same steps as an app image, the Trivy scan gate included (ADR 0025), and push to the `wkx/caddy` ECR repo, replacing the manual M3 build.
+- [ ] Platform-stack deploys via SSM RunCommand: a `main`-merge deploys the platform stack (`platform/compose.yml` plus its `compose.cloud.yml` overlay and Caddyfile) to the Host with the same bundle-and-send-command mechanism the apps use (ADR 0024), rather than a hand-run `docker compose` over an SSM session.
+- [ ] The platform stack carries the `prod` env like any other deploy (`platform-prod` on the cloud Host), so its deploy names `--env prod` explicitly, never defaulted.
+
+**Hands-on artifact**
+- [ ] Push a Caddyfile change to `wkx-platform` main → the platform stack redeploys and serves the change within minutes, no SSM session.
+- [ ] Open a PR with a `terraform fmt` violation → CI fails before merge.
 
 ---
 
